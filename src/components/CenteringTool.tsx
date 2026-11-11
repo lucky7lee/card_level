@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ChevronRight, RotateCcw } from 'lucide-react';
-import { CenteringLines, CenteringMetrics } from '../types/grading';
+import { CenteringLines, CenteringMetrics, GradingCompany } from '../types/grading';
 import { calculateCenteringMetrics } from '../utils/psaGrading';
 
 interface CenteringToolProps {
+  company: GradingCompany;
   frontImageUrl: string;
   backImageUrl?: string;
   frontLines: CenteringLines;
@@ -15,6 +16,7 @@ interface CenteringToolProps {
 }
 
 export const CenteringTool: React.FC<CenteringToolProps> = ({
+  company,
   frontImageUrl,
   backImageUrl,
   frontLines,
@@ -27,6 +29,8 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
   const [activeDragKey, setActiveDragKey] = useState<keyof CenteringLines | null>(null);
 
+  const isPSA = company === 'PSA';
+
   const currentLines = activeSide === 'front' ? frontLines : backLines;
   const setLines = activeSide === 'front' ? onChangeFrontLines : onChangeBackLines;
   const currentImg =
@@ -34,7 +38,8 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
 
   const activeMetrics: CenteringMetrics = calculateCenteringMetrics(
     currentLines,
-    activeSide
+    activeSide,
+    company
   );
 
   const updateLine = (key: keyof CenteringLines, value: number) => {
@@ -73,10 +78,13 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto">
-      {/* Simple Header Instruction */}
       <div className="w-full text-center mb-3 space-y-1">
-        <div className="text-xs font-extrabold text-red-400">
-          {activeSide === 'front' ? '2-1 / 2 · 앞면 센터링' : '2-2 / 2 · 뒷면 센터링'}
+        <div
+          className={`text-xs font-extrabold ${
+            isPSA ? 'text-red-400' : 'text-blue-400'
+          }`}
+        >
+          {company} {activeSide === 'front' ? '2-1 / 2 · 앞면 센터링' : '2-2 / 2 · 뒷면 센터링'}
         </div>
         <h2 className="text-base sm:text-lg font-extrabold text-white">
           {activeSide === 'front'
@@ -88,7 +96,6 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
         </p>
       </div>
 
-      {/* Large Interactive Card Viewport */}
       <div
         onPointerMove={handlePointerMove}
         onPointerUp={() => setActiveDragKey(null)}
@@ -101,7 +108,6 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
           className="w-full h-full object-cover pointer-events-none"
         />
 
-        {/* Vertical Lines */}
         {(
           [
             { key: 'leftOuter', color: 'border-amber-400' },
@@ -120,7 +126,6 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
           </div>
         ))}
 
-        {/* Horizontal Lines */}
         {(
           [
             { key: 'topOuter', color: 'border-amber-400' },
@@ -139,7 +144,6 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
           </div>
         ))}
 
-        {/* Auto-reset button at top right */}
         <button
           onClick={() => onAutoDetect(activeSide)}
           className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-slate-950/85 border border-slate-700 px-3 py-1.5 text-[11px] font-bold text-slate-200 backdrop-blur-md"
@@ -148,7 +152,6 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
           자동 맞춤
         </button>
 
-        {/* Bottom Ratio Pill inside Card */}
         <div className="pointer-events-none absolute bottom-3 inset-x-3 rounded-2xl bg-slate-950/90 border border-slate-800 p-3 flex items-center justify-around text-xs backdrop-blur-md">
           <div>
             <span className="text-slate-400 mr-1.5">좌:우</span>
@@ -166,15 +169,18 @@ export const CenteringTool: React.FC<CenteringToolProps> = ({
         </div>
       </div>
 
-      {/* Single Primary Action Button */}
       <button
         onClick={handleNext}
-        className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl bg-red-600 hover:bg-red-500 py-4 px-5 text-sm font-extrabold text-white shadow-lg shadow-red-600/30 transition"
+        className={`mt-4 w-full flex items-center justify-center gap-2 rounded-2xl py-4 px-5 text-sm font-extrabold text-white shadow-lg transition ${
+          isPSA
+            ? 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
+            : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+        }`}
       >
         <span>
           {activeSide === 'front' && backImageUrl
             ? '다음: 뒷면 테두리 확인'
-            : '최종 PSA 등급 결과 보기'}
+            : `최종 ${company} 등급 결과 보기`}
         </span>
         <ChevronRight className="w-5 h-5" />
       </button>

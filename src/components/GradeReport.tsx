@@ -1,18 +1,22 @@
 import React from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Home, RotateCcw } from 'lucide-react';
 import { CapturedFrames, FinalPSAReport } from '../types/grading';
 
 interface GradeReportProps {
   report: FinalPSAReport;
   frames: CapturedFrames;
   onResetOrRescan: () => void;
+  onBackHome: () => void;
 }
 
 export const GradeReport: React.FC<GradeReportProps> = ({
   report,
   frames,
   onResetOrRescan,
+  onBackHome,
 }) => {
+  const isPSA = report.company === 'PSA';
+
   const subgradeItems = [
     { label: '센터링', score: report.subgrades.centering },
     { label: '코너', score: report.subgrades.corners },
@@ -22,18 +26,36 @@ export const GradeReport: React.FC<GradeReportProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto space-y-4">
-      {/* PSA Slab Container */}
+      {/* Slab Container */}
       <div className="w-full rounded-3xl border-2 border-slate-700 bg-slate-900/95 p-4 shadow-2xl space-y-4">
-        {/* PSA Classic Red/White Header Label */}
-        <div className="rounded-2xl border-2 border-red-600 bg-white text-slate-900 p-3.5 flex items-center justify-between shadow-md">
+        {/* PSA (Red/White) vs BRG (Blue/Dark-Gold) Header Label */}
+        <div
+          className={`rounded-2xl border-2 p-3.5 flex items-center justify-between shadow-md ${
+            isPSA
+              ? 'border-red-600 bg-white text-slate-900'
+              : 'border-blue-500 bg-slate-950 text-white'
+          }`}
+        >
           <div>
-            <div className="inline-block rounded bg-red-600 px-2 py-0.5 text-[10px] font-black text-white mb-1">
-              PSA 예상 등급
+            <div
+              className={`inline-block rounded px-2 py-0.5 text-[10px] font-black text-white mb-1 ${
+                isPSA ? 'bg-red-600' : 'bg-blue-600'
+              }`}
+            >
+              {report.company} 예상 등급
             </div>
-            <div className="text-xl font-black text-red-600 leading-tight">
+            <div
+              className={`text-xl font-black leading-tight ${
+                isPSA ? 'text-red-600' : 'text-amber-400'
+              }`}
+            >
               {report.gradeInfo.code}
             </div>
-            <div className="text-xs font-bold text-slate-700">
+            <div
+              className={`text-xs font-bold ${
+                isPSA ? 'text-slate-700' : 'text-slate-300'
+              }`}
+            >
               {report.gradeInfo.titleKo}
             </div>
           </div>
@@ -41,8 +63,10 @@ export const GradeReport: React.FC<GradeReportProps> = ({
           <div
             className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${report.gradeInfo.badgeColor} flex flex-col items-center justify-center text-white shadow-lg shrink-0`}
           >
-            <span className="text-[10px] font-bold uppercase opacity-90">PSA</span>
-            <span className="text-3xl font-black leading-none">
+            <span className="text-[10px] font-bold uppercase opacity-90">
+              {report.company}
+            </span>
+            <span className="text-2xl font-black leading-none">
               {report.predictedGrade}
             </span>
           </div>
@@ -82,14 +106,27 @@ export const GradeReport: React.FC<GradeReportProps> = ({
         </div>
       </div>
 
-      {/* Single Rescan Button */}
-      <button
-        onClick={onResetOrRescan}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 hover:bg-red-500 py-4 text-sm font-extrabold text-white shadow-lg shadow-red-600/30 transition"
-      >
-        <RotateCcw className="w-4 h-4" />
-        <span>새로운 카드 다시 스캔하기</span>
-      </button>
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-3 w-full">
+        <button
+          onClick={onBackHome}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-4 text-xs font-extrabold text-slate-200 transition"
+        >
+          <Home className="w-4 h-4" />
+          <span>메인 화면</span>
+        </button>
+        <button
+          onClick={onResetOrRescan}
+          className={`inline-flex items-center justify-center gap-2 rounded-2xl py-4 text-xs font-extrabold text-white shadow-lg transition ${
+            isPSA
+              ? 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
+              : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>다시 스캔하기</span>
+        </button>
+      </div>
     </div>
   );
 };

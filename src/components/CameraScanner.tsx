@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
-import { CapturedFrames, ScanAngleId } from '../types/grading';
+import { CapturedFrames, GradingCompany, ScanAngleId } from '../types/grading';
 
 interface CameraScannerProps {
+  company: GradingCompany;
   frames: CapturedFrames;
   activeStep: ScanAngleId;
   onSelectStep: (step: ScanAngleId) => void;
@@ -43,6 +44,7 @@ const SIMPLE_STEPS: {
 ];
 
 export const CameraScanner: React.FC<CameraScannerProps> = ({
+  company,
   frames,
   activeStep,
   onSelectStep,
@@ -53,6 +55,8 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [flashEffect, setFlashEffect] = useState(false);
+
+  const isPSA = company === 'PSA';
 
   const currentIdx = Math.max(
     0,
@@ -115,7 +119,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     setCameraActive(false);
   };
 
-  // Automatically attempt to start camera on mount
   useEffect(() => {
     startCamera();
     return () => {
@@ -133,7 +136,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   }, [cameraActive]);
 
   const handleRoundCameraButton = async () => {
-    // If camera is not yet active, turn it on immediately
     if (!cameraActive || !videoRef.current) {
       await startCamera();
       return;
@@ -169,13 +171,11 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
-    // Visual shutter flash
     setFlashEffect(true);
     setTimeout(() => setFlashEffect(false), 150);
 
     onCaptureFrame(activeStep, dataUrl);
 
-    // Advance to next step or move to Step 2 (Centering)
     if (currentIdx < SIMPLE_STEPS.length - 1) {
       onSelectStep(SIMPLE_STEPS[currentIdx + 1].id);
     } else {
@@ -198,7 +198,9 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
                 onClick={() => onSelectStep(s.id)}
                 className={`h-2 rounded-full transition-all ${
                   active
-                    ? 'w-8 bg-red-500'
+                    ? isPSA
+                      ? 'w-8 bg-red-500'
+                      : 'w-8 bg-blue-500'
                     : done
                     ? 'w-4 bg-emerald-400'
                     : 'w-4 bg-slate-800'
@@ -208,8 +210,12 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
             );
           })}
         </div>
-        <div className="text-xs font-extrabold text-red-400 tracking-wide">
-          STEP {currentStep.badge} · {currentStep.subHint}
+        <div
+          className={`text-xs font-extrabold tracking-wide ${
+            isPSA ? 'text-red-400' : 'text-blue-400'
+          }`}
+        >
+          {company} STEP {currentStep.badge} · {currentStep.subHint}
         </div>
         <h2 className="text-base sm:text-lg font-extrabold text-white">
           {currentStep.instruction}
@@ -218,7 +224,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
 
       {/* Large Full-Focus Card Viewport */}
       <div className="relative w-full aspect-[5/7] rounded-3xl overflow-hidden border-2 border-slate-700 bg-slate-900 shadow-2xl">
-        {/* Always-mounted live video */}
         <video
           ref={videoRef}
           autoPlay
@@ -227,7 +232,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           className={cameraActive ? 'w-full h-full object-cover' : 'hidden'}
         />
 
-        {/* If camera hasn't started yet, show captured preview or clean prompt */}
         {!cameraActive && (
           <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-slate-900">
             {frames[activeStep] ? (
@@ -244,7 +248,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           </div>
         )}
 
-        {/* Shutter Flash Effect */}
         {flashEffect && <div className="absolute inset-0 bg-white/80 pointer-events-none" />}
 
         {/* Clean Card Guide Frame Overlay */}
@@ -259,12 +262,27 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
             }`}
           >
             {/* 4 Corner Guides */}
-            <div className="absolute -top-1 -left-1 w-7 h-7 border-t-4 border-l-4 border-red-500 rounded-tl-xl" />
-            <div className="absolute -top-1 -right-1 w-7 h-7 border-t-4 border-r-4 border-red-500 rounded-tr-xl" />
-            <div className="absolute -bottom-1 -left-1 w-7 h-7 border-b-4 border-l-4 border-red-500 rounded-bl-xl" />
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 border-b-4 border-r-4 border-red-500 rounded-br-xl" />
+            <div
+              className={`absolute -top-1 -left-1 w-7 h-7 border-t-4 border-l-4 rounded-tl-xl ${
+                isPSA ? 'border-red-500' : 'border-blue-500'
+              }`}
+            />
+            <div
+              className={`absolute -top-1 -right-1 w-7 h-7 border-t-4 border-r-4 rounded-tr-xl ${
+                isPSA ? 'border-red-500' : 'border-blue-500'
+              }`}
+            />
+            <div
+              className={`absolute -bottom-1 -left-1 w-7 h-7 border-b-4 border-l-4 rounded-bl-xl ${
+                isPSA ? 'border-red-500' : 'border-blue-500'
+              }`}
+            />
+            <div
+              className={`absolute -bottom-1 -right-1 w-7 h-7 border-b-4 border-r-4 rounded-br-xl ${
+                isPSA ? 'border-red-500' : 'border-blue-500'
+              }`}
+            />
 
-            {/* Subtle light reflection band hint on tilt steps */}
             {activeStep === 'tilt_top' && (
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-transparent via-sky-300/20 to-transparent" />
             )}
@@ -279,7 +297,11 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           <button
             onClick={handleRoundCameraButton}
             aria-label="카메라 스캔"
-            className="w-18 h-18 p-5 rounded-full bg-red-600 hover:bg-red-500 active:scale-90 border-4 border-white shadow-[0_0_25px_rgba(220,38,38,0.7)] flex items-center justify-center text-white transition-all"
+            className={`p-5 rounded-full active:scale-90 border-4 border-white flex items-center justify-center text-white transition-all ${
+              isPSA
+                ? 'bg-red-600 hover:bg-red-500 shadow-[0_0_25px_rgba(220,38,38,0.7)]'
+                : 'bg-blue-600 hover:bg-blue-500 shadow-[0_0_25px_rgba(37,99,235,0.7)]'
+            }`}
           >
             <Camera className="w-8 h-8" />
           </button>

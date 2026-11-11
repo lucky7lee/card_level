@@ -1,3 +1,5 @@
+export type GradingCompany = 'PSA' | 'BRG';
+
 export type ScanAngleId = 'front' | 'back' | 'tilt_top' | 'tilt_side';
 
 export interface ScanStepMeta {
@@ -6,21 +8,21 @@ export interface ScanStepMeta {
   title: string;
   subtitle: string;
   targetAngleLabel: string;
-  recommendedPitch: [number, number]; // min, max degrees
-  recommendedRoll: [number, number];  // min, max degrees
+  recommendedPitch: [number, number];
+  recommendedRoll: [number, number];
   focusArea: string;
   inspectionPoints: string[];
 }
 
 export interface CenteringLines {
-  leftOuter: number;   // 0..1 normalized X
-  leftInner: number;   // 0..1 normalized X
-  rightInner: number;  // 0..1 normalized X
-  rightOuter: number;  // 0..1 normalized X
-  topOuter: number;    // 0..1 normalized Y
-  topInner: number;    // 0..1 normalized Y
-  bottomInner: number; // 0..1 normalized Y
-  bottomOuter: number; // 0..1 normalized Y
+  leftOuter: number;
+  leftInner: number;
+  rightInner: number;
+  rightOuter: number;
+  topOuter: number;
+  topInner: number;
+  bottomInner: number;
+  bottomOuter: number;
 }
 
 export interface CenteringMetrics {
@@ -28,12 +30,12 @@ export interface CenteringMetrics {
   rightPercent: number;
   topPercent: number;
   bottomPercent: number;
-  maxHorizontalRatio: number; // e.g., 53.5 means 53.5 : 46.5
-  maxVerticalRatio: number;   // e.g., 55.2 means 55.2 : 44.8
-  worstRatio: number;         // max(maxHorizontalRatio, maxVerticalRatio)
-  psaMaxGradeAllowed: number; // 10, 9, 8, 7, 6, 5...
-  ratioTextLR: string;        // "53 : 47"
-  ratioTextTB: string;        // "55 : 45"
+  maxHorizontalRatio: number;
+  maxVerticalRatio: number;
+  worstRatio: number;
+  psaMaxGradeAllowed: number;
+  ratioTextLR: string;
+  ratioTextTB: string;
 }
 
 export type CornerId = 'TL' | 'TR' | 'BL' | 'BR';
@@ -42,18 +44,18 @@ export interface CornerAnalysis {
   id: CornerId;
   label: string;
   cropDataUrl: string;
-  whiteningPercent: number; // 0..100 (percentage of border edge pixels showing white paper core)
-  sharpnessScore: number;   // 0..100
-  estimatedGrade: number;   // 1..10
+  whiteningPercent: number;
+  sharpnessScore: number;
+  estimatedGrade: number;
   issueNote: string;
 }
 
 export interface EdgeAnalysis {
   side: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT';
   label: string;
-  whiteningScore: number;   // 0..100 (100 = pristine)
+  whiteningScore: number;
   silveringDetected: boolean;
-  estimatedGrade: number;   // 1..10
+  estimatedGrade: number;
   issueNote: string;
 }
 
@@ -62,20 +64,20 @@ export interface SurfaceDefect {
   type: 'holo_scratch' | 'print_line' | 'indent_dent' | 'stain_clouding';
   label: string;
   severity: 'minor' | 'moderate' | 'severe';
-  x: number; // 0..1 normalized
-  y: number; // 0..1 normalized
+  x: number;
+  y: number;
   description: string;
   detectedAtAngle: ScanAngleId;
 }
 
 export interface SurfaceAnalysis {
   glareCoveragePercent: number;
-  scratchDensityIndex: number; // 0..100 (lower is better)
+  scratchDensityIndex: number;
   printLinesDetected: number;
   indentOrCreaseDetected: boolean;
   heatmapDataUrl: string;
   defects: SurfaceDefect[];
-  estimatedGrade: number; // 1..10
+  estimatedGrade: number;
 }
 
 export interface CapturedFrames {
@@ -87,8 +89,8 @@ export interface CapturedFrames {
 
 export interface PSAGradeInfo {
   grade: number;
-  code: string;        // e.g. "GEM-MT 10", "MINT 9", "NM-MT 8"
-  titleKo: string;     // e.g. "젬민트 (완벽 상태)"
+  code: string;
+  titleKo: string;
   frontCenteringRule: string;
   backCenteringRule: string;
   description: string;
@@ -96,11 +98,12 @@ export interface PSAGradeInfo {
 }
 
 export interface FinalPSAReport {
+  company: GradingCompany;
   cardTitle: string;
   timestamp: string;
   predictedGrade: number;
   gradeInfo: PSAGradeInfo;
-  confidenceScore: number; // 0..100
+  confidenceScore: number;
   probabilities: {
     psa10: number;
     psa9: number;
