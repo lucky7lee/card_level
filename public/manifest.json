@@ -1,0 +1,19 @@
+{
+  "name": "PokéGrade AI - 포켓몬카드 PSA 등급 예측기",
+  "short_name": "PokéGrade PSA",
+  "description": "스마트폰 다각도 카메라 스캔 및 컴퓨터 비전 기반 포켓몬카드 PSA 등급 예측 웹앱",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#da291c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
