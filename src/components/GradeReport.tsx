@@ -1,5 +1,12 @@
 import React from 'react';
-import { Home, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Home,
+  RotateCcw,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react';
 import { CapturedFrames, FinalPSAReport } from '../types/grading';
 
 interface GradeReportProps {
@@ -25,10 +32,10 @@ export const GradeReport: React.FC<GradeReportProps> = ({
   ];
 
   return (
-    <div className="flex flex-col items-center w-full max-w-md mx-auto space-y-4">
+    <div className="flex flex-col items-center w-full max-w-md mx-auto space-y-4 pb-8">
       {/* Slab Container */}
       <div className="w-full rounded-3xl border-2 border-slate-700 bg-slate-900/95 p-4 shadow-2xl space-y-4">
-        {/* PSA (Red/White) vs BRG (Blue/Dark-Gold) Header Label */}
+        {/* Slab Header Label */}
         <div
           className={`rounded-2xl border-2 p-3.5 flex items-center justify-between shadow-md ${
             isPSA
@@ -72,9 +79,9 @@ export const GradeReport: React.FC<GradeReportProps> = ({
           </div>
         </div>
 
-        {/* Captured Front Card Image */}
+        {/* Rectified Card Image (Clean background-free flattened preview) */}
         {frames.front && (
-          <div className="mx-auto w-[78%] aspect-[5/7] rounded-2xl overflow-hidden border border-slate-700 shadow-lg">
+          <div className="mx-auto w-[76%] aspect-[5/7] rounded-2xl overflow-hidden border border-slate-700 shadow-lg">
             <img
               src={frames.front}
               alt="Scanned Card"
@@ -83,7 +90,7 @@ export const GradeReport: React.FC<GradeReportProps> = ({
           </div>
         )}
 
-        {/* 4 Simple Subgrade Scores */}
+        {/* 4 Core Subgrade Scores */}
         <div className="grid grid-cols-4 gap-2 text-center">
           {subgradeItems.map((item) => (
             <div
@@ -100,7 +107,114 @@ export const GradeReport: React.FC<GradeReportProps> = ({
           ))}
         </div>
 
-        {/* Concise Summary Note */}
+        {/* Physical Defects Inspection Grid (앞·뒷면 스크래치, 찍힘, 구겨짐) */}
+        <div className="rounded-2xl bg-slate-950 border border-slate-800 p-3.5 space-y-2.5">
+          <div className="text-xs font-extrabold text-white flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>앞·뒷면 물리적 결함 정밀 분석 결과</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">
+              다각도 비전 판독
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* 1. 구겨짐 / 주름 */}
+            <div
+              className={`rounded-xl border p-2.5 flex flex-col justify-between ${
+                report.creaseDetected
+                  ? 'border-red-500/50 bg-red-950/20 text-red-300'
+                  : 'border-slate-800/80 bg-slate-900/60 text-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold">구겨짐/주름</span>
+                {report.creaseDetected ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+              </div>
+              <div className="text-[11px] mt-1 text-slate-400">
+                {report.creaseDetected ? '⚠️ 주름 검출 (최대 5제한)' : '무결점 (없음)'}
+              </div>
+            </div>
+
+            {/* 2. 미세 찍힘 / 눌림 */}
+            <div
+              className={`rounded-xl border p-2.5 flex flex-col justify-between ${
+                report.indentDetected
+                  ? 'border-amber-500/50 bg-amber-950/20 text-amber-300'
+                  : 'border-slate-800/80 bg-slate-900/60 text-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold">미세 찍힘/눌림</span>
+                {report.indentDetected ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+              </div>
+              <div className="text-[11px] mt-1 text-slate-400">
+                {report.indentDetected ? '⚠️ 찍힘 검출 (최대 6제한)' : '무결점 (없음)'}
+              </div>
+            </div>
+
+            {/* 3. 홀로 / 표면 스크래치 */}
+            <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-2.5 flex flex-col justify-between text-slate-300">
+              <div className="flex items-center justify-between">
+                <span className="font-bold">표면 스크래치</span>
+                {report.surface.scratchDensityIndex > 25 ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+              </div>
+              <div className="text-[11px] mt-1 text-slate-400">
+                {report.surface.scratchDensityIndex > 25 ? '미세 기스 관찰' : '무결점 (광택 양호)'}
+              </div>
+            </div>
+
+            {/* 4. 후면 코너 백화 */}
+            <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-2.5 flex flex-col justify-between text-slate-300">
+              <div className="flex items-center justify-between">
+                <span className="font-bold">후면 코너 백화</span>
+                {report.subgrades.corners < 9.0 ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+              </div>
+              <div className="text-[11px] mt-1 text-slate-400">
+                {report.subgrades.corners >= 9.5 ? '백화 없음 (Pristine)' : '미세 점 관찰'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Defect Notes if any */}
+        {report.surface.defects.length > 0 && (
+          <div className="space-y-1.5">
+            {report.surface.defects.map((d) => (
+              <div
+                key={d.id}
+                className="rounded-xl border border-red-500/30 bg-red-950/20 p-2.5 text-xs text-slate-300 flex items-start gap-2"
+              >
+                <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-red-300">{d.label}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    {d.description}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Summary Limiting Factor */}
         <div className="rounded-xl bg-slate-950/90 border border-slate-800 p-3 text-xs text-slate-300 text-center leading-relaxed">
           {report.limitingFactor}
         </div>
@@ -110,7 +224,7 @@ export const GradeReport: React.FC<GradeReportProps> = ({
       <div className="grid grid-cols-2 gap-3 w-full">
         <button
           onClick={onBackHome}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 py-4 text-xs font-extrabold text-slate-200 transition"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-850 py-4 text-xs font-extrabold text-slate-200 transition"
         >
           <Home className="w-4 h-4" />
           <span>메인 화면</span>

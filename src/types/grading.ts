@@ -14,6 +14,18 @@ export interface ScanStepMeta {
   inspectionPoints: string[];
 }
 
+export interface Point2D {
+  x: number;
+  y: number;
+}
+
+export interface CardQuad {
+  topLeft: Point2D;
+  topRight: Point2D;
+  bottomRight: Point2D;
+  bottomLeft: Point2D;
+}
+
 export interface CenteringLines {
   leftOuter: number;
   leftInner: number;
@@ -36,6 +48,10 @@ export interface CenteringMetrics {
   psaMaxGradeAllowed: number;
   ratioTextLR: string;
   ratioTextTB: string;
+  leftWidthMm?: number;
+  rightWidthMm?: number;
+  topWidthMm?: number;
+  bottomWidthMm?: number;
 }
 
 export type CornerId = 'TL' | 'TR' | 'BL' | 'BR';
@@ -59,9 +75,18 @@ export interface EdgeAnalysis {
   issueNote: string;
 }
 
+export type DefectType =
+  | 'holo_scratch'
+  | 'surface_scratch'
+  | 'indent_dent'
+  | 'crease_fold'
+  | 'print_line'
+  | 'whitening_chip';
+
 export interface SurfaceDefect {
   id: string;
-  type: 'holo_scratch' | 'print_line' | 'indent_dent' | 'stain_clouding';
+  type: DefectType;
+  targetSide: 'front' | 'back';
   label: string;
   severity: 'minor' | 'moderate' | 'severe';
   x: number;
@@ -75,6 +100,8 @@ export interface SurfaceAnalysis {
   scratchDensityIndex: number;
   printLinesDetected: number;
   indentOrCreaseDetected: boolean;
+  creaseDetected: boolean;
+  indentDetected: boolean;
   heatmapDataUrl: string;
   defects: SurfaceDefect[];
   estimatedGrade: number;
@@ -121,6 +148,8 @@ export interface FinalPSAReport {
   corners: CornerAnalysis[];
   edges: EdgeAnalysis[];
   surface: SurfaceAnalysis;
+  creaseDetected: boolean;
+  indentDetected: boolean;
   limitingFactor: string;
   submissionAdvice: string;
   aiExpertComment?: string;

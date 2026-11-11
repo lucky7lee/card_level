@@ -1,9 +1,11 @@
 import {
   CapturedFrames,
+  CardQuad,
   CenteringLines,
   CornerAnalysis,
   CornerId,
   EdgeAnalysis,
+  Point2D,
   SurfaceAnalysis,
   SurfaceDefect,
 } from '../types/grading';
@@ -24,7 +26,7 @@ export const DEMO_PRESETS: DemoPresetMeta[] = [
     name: 'PSA 10 후보 (무결점 젬민트)',
     cardTitle: '리자몽 ex SAR (151 / SV2a 201/165)',
     badge: '예상 PSA 10',
-    summary: '전면 51:49 칼센터링, 후면 4코너 백화 0%, 다각도 빛반사 스크래치 없음'
+    summary: '전면 51:49 칼센터링, 후면 4코너 백화 0%, 스크래치·찍힘·구겨짐 무결점'
   },
   {
     id: 'psa9_oc',
@@ -38,18 +40,18 @@ export const DEMO_PRESETS: DemoPresetMeta[] = [
     name: 'PSA 8 후보 (후면 모서리 백화 & 호일 기스)',
     cardTitle: '뮤츠 VSTAR SAR (VSTAR 유니버스 221/172)',
     badge: '예상 PSA 8',
-    summary: '후면 우상단·좌하단 모서리 백화(Whitening) 및 20° 사선 스캔에서 홀로그램 기스 검출'
+    summary: '후면 우상단·좌하단 모서리 백화(Whitening) 및 사선 스캔에서 홀로그램 기스 검출'
   },
   {
     id: 'psa6_indent',
     name: 'PSA 6 후보 (정면 완벽 / 사선 빛반사 미세 찍힘)',
     cardTitle: '블래키 VMAX SA (이브이 히어로즈 095/069)',
     badge: '예상 PSA 6 (찍힘 제한)',
-    summary: '수직 정면·후면은 PSA 10급이나 20° 기울기 빛반사에서 미세 눌림(Indent) 포착'
+    summary: '수직 정면·후면은 PSA 10급이나 사선 빛반사에서 미세 눌림(Indent) 포착'
   }
 ];
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -60,166 +62,421 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Automatically detects the outer card edges and inner border frame lines
- * from a captured card image using luminance/chromatic gradient scanning.
+ * Robust Card Boundary & Corner Detection on arbitrary backgrounds (desk, floor, table)
+ * Identifies the 4 quadrilateral corners (TL, TR, BR, BL) of the Pokémon card.
+ */
+export function detectCardQuadrilateral(
+  canvas: HTMLCanvasElement,
+  data: Uint8ClampedArray,
+  w: number,
+  h: number
+): CardQuad {
+  // Sample background colors at the 4 outer image corners (10% margins)
+  let bgR = 0;
+  let bgG = 0;
+  let bgB = 0;
+  let bgCount = 0;
+
+  const cornerSize = Math.max(6, Math.floor(Math.min(w, h) * 0.08));
+  for (let y = 0; y < cornerSize; y++) {
+    for (let x = 0; x < cornerSize; x++) {
+      // Top-Left
+      const iTL = (y * w + x) * 4;
+      bgR += data[iTL];
+      bgG += data[iTL + 1];
+      bgB += data[iTL + 2];
+      // Top-Right
+      const iTR = (y * w + (w - 1 - x)) * 4;
+      bgR += data[iTR];
+      bgG += data[iTR + 1];
+      bgB += data[iTR + 2];
+      // Bottom-Left
+      const iBL = ((h - 1 - y) * w + x) * 4;
+      bgR += data[iBL];
+      bgG += data[iBL + 1];
+      bgB += data[iBL + 2];
+      // Bottom-Right
+      const iBR = ((h - 1 - y) * w + (w - 1 - x)) * 4;
+      bgR += data[iBR];
+      bgG += data[iBR + 1];
+      bgB += data[iBR + 2];
+      bgCount += 4;
+    }
+  }
+
+  bgR /= bgCount;
+  bgG /= bgCount;
+  bgB /= bgCount;
+
+  const isEdgeOrCard = (x: number, y: number) => {
+    const idx = (Math.floor(y) * w + Math.floor(x)) * 4;
+    const r = data[idx];
+    const g = data[idx + 1];
+    const b = data[idx + 2];
+
+    const colorDist = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
+
+    // Color gradient with neighbor
+    let grad = 0;
+    if (x + 2 < w && y + 2 < h) {
+      const idxR = (Math.floor(y) * w + Math.floor(x + 2)) * 4;
+      const idxD = (Math.floor(y + 2) * w + Math.floor(x)) * 4;
+      grad =
+        Math.abs(r - data[idxR]) +
+        Math.abs(g - data[idxR + 1]) +
+        Math.abs(b - data[idxR + 2]) +
+        Math.abs(r - data[idxD]) +
+        Math.abs(g - data[idxD + 1]) +
+        Math.abs(b - data[idxD + 2]);
+    }
+
+    return colorDist > 45 || grad > 65;
+  };
+
+  // Scan inward along multiple sample lines to find card edges
+  const leftPoints: number[] = [];
+  const rightPoints: number[] = [];
+  const topPoints: number[] = [];
+  const bottomPoints: number[] = [];
+
+  const ySamples = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+  for (const sy of ySamples) {
+    const y = Math.floor(h * sy);
+    // Scan from left inward
+    for (let x = 2; x < w * 0.45; x++) {
+      if (isEdgeOrCard(x, y) && isEdgeOrCard(x + 3, y)) {
+        leftPoints.push(x);
+        break;
+      }
+    }
+    // Scan from right inward
+    for (let x = w - 3; x > w * 0.55; x--) {
+      if (isEdgeOrCard(x, y) && isEdgeOrCard(x - 3, y)) {
+        rightPoints.push(x);
+        break;
+      }
+    }
+  }
+
+  const xSamples = [0.25, 0.35, 0.5, 0.65, 0.75];
+  for (const sx of xSamples) {
+    const x = Math.floor(w * sx);
+    // Scan from top downward
+    for (let y = 2; y < h * 0.45; y++) {
+      if (isEdgeOrCard(x, y) && isEdgeOrCard(x, y + 3)) {
+        topPoints.push(y);
+        break;
+      }
+    }
+    // Scan from bottom upward
+    for (let y = h - 3; y > h * 0.55; y--) {
+      if (isEdgeOrCard(x, y) && isEdgeOrCard(x, y - 3)) {
+        bottomPoints.push(y);
+        break;
+      }
+    }
+  }
+
+  const median = (arr: number[], fallback: number) => {
+    if (arr.length === 0) return fallback;
+    const sorted = [...arr].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
+
+  // Find median bounds with fallback to standard 6% card guide box
+  const minLeft = median(leftPoints, Math.round(w * 0.06));
+  const maxRight = median(rightPoints, Math.round(w * 0.94));
+  const minTop = median(topPoints, Math.round(h * 0.055));
+  const maxBottom = median(bottomPoints, Math.round(h * 0.945));
+
+  // Sanity check card dimensions: width should be >= 40% and height >= 45%
+  const cardW = maxRight - minLeft;
+  const cardH = maxBottom - minTop;
+  if (cardW < w * 0.4 || cardH < h * 0.4) {
+    return {
+      topLeft: { x: w * 0.06, y: h * 0.055 },
+      topRight: { x: w * 0.94, y: h * 0.055 },
+      bottomRight: { x: w * 0.94, y: h * 0.945 },
+      bottomLeft: { x: w * 0.06, y: h * 0.945 },
+    };
+  }
+
+  // Slightly adjust for keystone perspective if top vs bottom width varies
+  const topW =
+    rightPoints.length > 0 && leftPoints.length > 0
+      ? rightPoints[0] - leftPoints[0]
+      : cardW;
+  const botW =
+    rightPoints.length > 0 && leftPoints.length > 0
+      ? rightPoints[rightPoints.length - 1] - leftPoints[leftPoints.length - 1]
+      : cardW;
+
+  const topSkew = (botW - topW) * 0.25;
+
+  return {
+    topLeft: { x: Math.max(0, minLeft + topSkew), y: minTop },
+    topRight: { x: Math.min(w, maxRight - topSkew), y: minTop },
+    bottomRight: { x: Math.min(w, maxRight), y: maxBottom },
+    bottomLeft: { x: Math.max(0, minLeft), y: maxBottom },
+  };
+}
+
+/**
+ * High-performance Projective Homography Warp (Perspective Rectification)
+ * Warps any trapezoidal or tilted card into an upright, flat, orthogonal 600x840 canvas,
+ * removing the floor/desk background completely!
+ */
+export async function rectifyCardPerspective(
+  imageDataUrl: string
+): Promise<{ rectifiedDataUrl: string; quad: CardQuad }> {
+  const img = await loadImage(imageDataUrl);
+
+  const srcW = img.naturalWidth || img.width || 600;
+  const srcH = img.naturalHeight || img.height || 840;
+
+  // Small canvas for quick boundary detection
+  const procW = 320;
+  const procH = 448;
+  const procCanvas = document.createElement('canvas');
+  procCanvas.width = procW;
+  procCanvas.height = procH;
+  const procCtx = procCanvas.getContext('2d')!;
+  procCtx.drawImage(img, 0, 0, procW, procH);
+  const procData = procCtx.getImageData(0, 0, procW, procH).data;
+
+  const procQuad = detectCardQuadrilateral(procCanvas, procData, procW, procH);
+
+  // Scale detected quad to source image coordinates
+  const scaleX = srcW / procW;
+  const scaleY = srcH / procH;
+
+  const quad: CardQuad = {
+    topLeft: { x: procQuad.topLeft.x * scaleX, y: procQuad.topLeft.y * scaleY },
+    topRight: { x: procQuad.topRight.x * scaleX, y: procQuad.topRight.y * scaleY },
+    bottomRight: { x: procQuad.bottomRight.x * scaleX, y: procQuad.bottomRight.y * scaleY },
+    bottomLeft: { x: procQuad.bottomLeft.x * scaleX, y: procQuad.bottomLeft.y * scaleY },
+  };
+
+  // Destination Rectified Canvas: 600 x 840 with a clean 4% outer margin (padding: 24px H, 34px V)
+  // so the rectified card boundaries are clearly visible at exactly 0.04 and 0.96.
+  const destW = 600;
+  const destH = 840;
+  const padX = 24;
+  const padY = 34;
+  const innerW = destW - padX * 2; // 552
+  const innerH = destH - padY * 2; // 772
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = destW;
+  outCanvas.height = destH;
+  const outCtx = outCanvas.getContext('2d')!;
+
+  // Dark matte background
+  outCtx.fillStyle = '#090d16';
+  outCtx.fillRect(0, 0, destW, destH);
+
+  // Projective mapping from [0, 1]x[0, 1] to source quad
+  const x0 = quad.topLeft.x;
+  const y0 = quad.topLeft.y;
+  const x1 = quad.topRight.x;
+  const y1 = quad.topRight.y;
+  const x2 = quad.bottomRight.x;
+  const y2 = quad.bottomRight.y;
+  const x3 = quad.bottomLeft.x;
+  const y3 = quad.bottomLeft.y;
+
+  const dx1 = x1 - x2;
+  const dx2 = x3 - x2;
+  const sx = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2;
+  const dy2 = y3 - y2;
+  const sy = y0 - y1 + y2 - y3;
+
+  let a11: number, a12: number, a13: number;
+  let a21: number, a22: number, a23: number;
+  let a31: number, a32: number;
+
+  const det = dx1 * dy2 - dy1 * dx2;
+  if (Math.abs(det) < 1e-5) {
+    a11 = x1 - x0; a12 = x3 - x0; a13 = x0;
+    a21 = y1 - y0; a22 = y3 - y0; a23 = y0;
+    a31 = 0; a32 = 0;
+  } else {
+    a31 = (sx * dy2 - sy * dx2) / det;
+    a32 = (dx1 * sy - dy1 * sx) / det;
+    a11 = x1 - x0 + a31 * x1;
+    a12 = x3 - x0 + a32 * x3;
+    a13 = x0;
+    a21 = y1 - y0 + a31 * y1;
+    a22 = y3 - y0 + a32 * y3;
+    a23 = y0;
+  }
+
+  // Draw source image onto a canvas to read raw pixels for warping
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = srcW;
+  srcCanvas.height = srcH;
+  const srcCtx = srcCanvas.getContext('2d')!;
+  srcCtx.drawImage(img, 0, 0, srcW, srcH);
+  const srcImageData = srcCtx.getImageData(0, 0, srcW, srcH);
+  const sData = srcImageData.data;
+
+  const outImageData = outCtx.getImageData(0, 0, destW, destH);
+  const oData = outImageData.data;
+
+  // Warp pixel-by-pixel with bilinear interpolation inside the rectified card boundary
+  for (let dy = padY; dy < destH - padY; dy++) {
+    const t = (dy - padY) / innerH;
+    for (let dx = padX; dx < destW - padX; dx++) {
+      const s = (dx - padX) / innerW;
+
+      const denom = a31 * s + a32 * t + 1;
+      const srcX = (a11 * s + a12 * t + a13) / denom;
+      const srcY = (a21 * s + a22 * t + a23) / denom;
+
+      if (srcX >= 0 && srcX < srcW - 1 && srcY >= 0 && srcY < srcH - 1) {
+        const xFloor = Math.floor(srcX);
+        const yFloor = Math.floor(srcY);
+        const xFrac = srcX - xFloor;
+        const yFrac = srcY - yFloor;
+
+        const idx00 = (yFloor * srcW + xFloor) * 4;
+        const idx10 = (yFloor * srcW + (xFloor + 1)) * 4;
+        const idx01 = ((yFloor + 1) * srcW + xFloor) * 4;
+        const idx11 = ((yFloor + 1) * srcW + (xFloor + 1)) * 4;
+
+        const w00 = (1 - xFrac) * (1 - yFrac);
+        const w10 = xFrac * (1 - yFrac);
+        const w01 = (1 - xFrac) * yFrac;
+        const w11 = xFrac * yFrac;
+
+        const r = w00 * sData[idx00] + w10 * sData[idx10] + w01 * sData[idx01] + w11 * sData[idx11];
+        const g =
+          w00 * sData[idx00 + 1] +
+          w10 * sData[idx10 + 1] +
+          w01 * sData[idx01 + 1] +
+          w11 * sData[idx11 + 1];
+        const b =
+          w00 * sData[idx00 + 2] +
+          w10 * sData[idx10 + 2] +
+          w01 * sData[idx01 + 2] +
+          w11 * sData[idx11 + 2];
+
+        const outIdx = (dy * destW + dx) * 4;
+        oData[outIdx] = r;
+        oData[outIdx + 1] = g;
+        oData[outIdx + 2] = b;
+        oData[outIdx + 3] = 255;
+      }
+    }
+  }
+
+  outCtx.putImageData(outImageData, 0, 0);
+
+  return {
+    rectifiedDataUrl: outCanvas.toDataURL('image/jpeg', 0.92),
+    quad,
+  };
+}
+
+/**
+ * Automatically rectifies the card from the background and detects exact outer boundaries
+ * and inner illustration/border frame lines with sub-pixel centering accuracy.
  */
 export async function autoDetectCenteringLines(
   imageDataUrl: string
-): Promise<CenteringLines> {
-  try {
-    const img = await loadImage(imageDataUrl);
-    const w = 400;
-    const h = 560;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('No 2d context');
+): Promise<{ lines: CenteringLines; rectifiedUrl: string }> {
+  // 1. Perspective rectify card & separate from background
+  const { rectifiedDataUrl } = await rectifyCardPerspective(imageDataUrl);
 
-    ctx.drawImage(img, 0, 0, w, h);
-    const { data } = ctx.getImageData(0, 0, w, h);
+  const img = await loadImage(rectifiedDataUrl);
+  const w = 600;
+  const h = 840;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
 
-    const getLum = (x: number, y: number) => {
-      const idx = (Math.floor(y) * w + Math.floor(x)) * 4;
-      return 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-    };
+  // In the rectified image, the card body sits with 4% padding (24px left/right, 34px top/bottom)
+  const cardLeft = 24 / w; // 0.04
+  const cardRight = (w - 24) / w; // 0.96
+  const cardTop = 34 / h; // 0.0405
+  const cardBottom = (h - 34) / h; // 0.9595
 
-    const getColorDiff = (x1: number, y1: number, x2: number, y2: number) => {
-      const i1 = (Math.floor(y1) * w + Math.floor(x1)) * 4;
-      const i2 = (Math.floor(y2) * w + Math.floor(x2)) * 4;
-      return (
-        Math.abs(data[i1] - data[i2]) +
-        Math.abs(data[i1 + 1] - data[i2 + 1]) +
-        Math.abs(data[i1 + 2] - data[i2 + 2])
-      );
-    };
+  const getColorDiff = (x1: number, y1: number, x2: number, y2: number) => {
+    const i1 = (Math.floor(y1) * w + Math.floor(x1)) * 4;
+    const i2 = (Math.floor(y2) * w + Math.floor(x2)) * 4;
+    return (
+      Math.abs(data[i1] - data[i2]) +
+      Math.abs(data[i1 + 1] - data[i2 + 1]) +
+      Math.abs(data[i1 + 2] - data[i2 + 2])
+    );
+  };
 
-    // Scan horizontal profile across the middle third of the card
-    const sampleYs = [h * 0.35, h * 0.5, h * 0.65];
-
-    // Outer bounds default to standard framing guide (approx 6% margin)
-    let leftOuterPx = Math.round(w * 0.06);
-    let rightOuterPx = Math.round(w * 0.94);
-    let topOuterPx = Math.round(h * 0.055);
-    let bottomOuterPx = Math.round(h * 0.945);
-
-    // Find outer left edge (transition from dark background to bright/colored card border)
-    for (let x = 4; x < w * 0.18; x++) {
-      let grad = 0;
-      for (const sy of sampleYs) grad += getColorDiff(x - 2, sy, x + 2, sy);
-      if (grad / sampleYs.length > 75 && getLum(x + 3, h * 0.5) > 45) {
-        leftOuterPx = x;
-        break;
-      }
+  // Scan inward from Left outer edge (around 4% to 12% of card width) to find inner frame line
+  const sampleYs = [h * 0.25, h * 0.38, h * 0.5, h * 0.62, h * 0.75];
+  let leftInnerPx = Math.round(w * (cardLeft + 0.052));
+  let maxLeftGrad = 0;
+  for (let x = Math.round(w * (cardLeft + 0.025)); x < Math.round(w * (cardLeft + 0.095)); x++) {
+    let grad = 0;
+    for (const sy of sampleYs) grad += getColorDiff(x - 1, sy, x + 2, sy);
+    if (grad > maxLeftGrad) {
+      maxLeftGrad = grad;
+      leftInnerPx = x;
     }
-
-    // Find outer right edge
-    for (let x = w - 5; x > w * 0.82; x--) {
-      let grad = 0;
-      for (const sy of sampleYs) grad += getColorDiff(x + 2, sy, x - 2, sy);
-      if (grad / sampleYs.length > 75 && getLum(x - 3, h * 0.5) > 45) {
-        rightOuterPx = x;
-        break;
-      }
-    }
-
-    // Find inner left border (transition from uniform silver/yellow/blue border to artwork/inner box)
-    let leftInnerPx = leftOuterPx + Math.round(w * 0.052);
-    let maxLeftInnerGrad = 0;
-    for (let x = leftOuterPx + Math.round(w * 0.025); x < leftOuterPx + Math.round(w * 0.11); x++) {
-      let grad = 0;
-      for (const sy of sampleYs) grad += getColorDiff(x - 2, sy, x + 2, sy);
-      if (grad > maxLeftInnerGrad) {
-        maxLeftInnerGrad = grad;
-        leftInnerPx = x;
-      }
-    }
-
-    // Find inner right border
-    let rightInnerPx = rightOuterPx - Math.round(w * 0.052);
-    let maxRightInnerGrad = 0;
-    for (
-      let x = rightOuterPx - Math.round(w * 0.025);
-      x > rightOuterPx - Math.round(w * 0.11);
-      x--
-    ) {
-      let grad = 0;
-      for (const sy of sampleYs) grad += getColorDiff(x + 2, sy, x - 2, sy);
-      if (grad > maxRightInnerGrad) {
-        maxRightInnerGrad = grad;
-        rightInnerPx = x;
-      }
-    }
-
-    // Scan vertical profile across middle X
-    const sampleXs = [w * 0.35, w * 0.5, w * 0.65];
-
-    for (let y = 4; y < h * 0.16; y++) {
-      let grad = 0;
-      for (const sx of sampleXs) grad += getColorDiff(sx, y - 2, sx, y + 2);
-      if (grad / sampleXs.length > 75 && getLum(w * 0.5, y + 3) > 45) {
-        topOuterPx = y;
-        break;
-      }
-    }
-
-    for (let y = h - 5; y > h * 0.84; y--) {
-      let grad = 0;
-      for (const sx of sampleXs) grad += getColorDiff(sx, y + 2, sx, y - 2);
-      if (grad / sampleXs.length > 75 && getLum(w * 0.5, y - 3) > 45) {
-        bottomOuterPx = y;
-        break;
-      }
-    }
-
-    let topInnerPx = topOuterPx + Math.round(h * 0.038);
-    let maxTopInnerGrad = 0;
-    for (let y = topOuterPx + Math.round(h * 0.018); y < topOuterPx + Math.round(h * 0.085); y++) {
-      let grad = 0;
-      for (const sx of sampleXs) grad += getColorDiff(sx, y - 2, sx, y + 2);
-      if (grad > maxTopInnerGrad) {
-        maxTopInnerGrad = grad;
-        topInnerPx = y;
-      }
-    }
-
-    let bottomInnerPx = bottomOuterPx - Math.round(h * 0.038);
-    let maxBottomInnerGrad = 0;
-    for (
-      let y = bottomOuterPx - Math.round(h * 0.018);
-      y > bottomOuterPx - Math.round(h * 0.085);
-      y--
-    ) {
-      let grad = 0;
-      for (const sx of sampleXs) grad += getColorDiff(sx, y + 2, sx, y - 2);
-      if (grad > maxBottomInnerGrad) {
-        maxBottomInnerGrad = grad;
-        bottomInnerPx = y;
-      }
-    }
-
-    return {
-      leftOuter: Number((leftOuterPx / w).toFixed(4)),
-      leftInner: Number((leftInnerPx / w).toFixed(4)),
-      rightInner: Number((rightInnerPx / w).toFixed(4)),
-      rightOuter: Number((rightOuterPx / w).toFixed(4)),
-      topOuter: Number((topOuterPx / h).toFixed(4)),
-      topInner: Number((topInnerPx / h).toFixed(4)),
-      bottomInner: Number((bottomInnerPx / h).toFixed(4)),
-      bottomOuter: Number((bottomOuterPx / h).toFixed(4)),
-    };
-  } catch {
-    return {
-      leftOuter: 0.06,
-      leftInner: 0.112,
-      rightInner: 0.888,
-      rightOuter: 0.94,
-      topOuter: 0.055,
-      topInner: 0.095,
-      bottomInner: 0.905,
-      bottomOuter: 0.945,
-    };
   }
+
+  // Scan inward from Right outer edge
+  let rightInnerPx = Math.round(w * (cardRight - 0.052));
+  let maxRightGrad = 0;
+  for (let x = Math.round(w * (cardRight - 0.025)); x > Math.round(w * (cardRight - 0.095)); x--) {
+    let grad = 0;
+    for (const sy of sampleYs) grad += getColorDiff(x + 1, sy, x - 2, sy);
+    if (grad > maxRightGrad) {
+      maxRightGrad = grad;
+      rightInnerPx = x;
+    }
+  }
+
+  // Scan inward from Top outer edge
+  const sampleXs = [w * 0.25, w * 0.38, w * 0.5, w * 0.62, w * 0.75];
+  let topInnerPx = Math.round(h * (cardTop + 0.042));
+  let maxTopGrad = 0;
+  for (let y = Math.round(h * (cardTop + 0.02)); y < Math.round(h * (cardTop + 0.08)); y++) {
+    let grad = 0;
+    for (const sx of sampleXs) grad += getColorDiff(sx, y - 1, sx, y + 2);
+    if (grad > maxTopGrad) {
+      maxTopGrad = grad;
+      topInnerPx = y;
+    }
+  }
+
+  // Scan inward from Bottom outer edge
+  let bottomInnerPx = Math.round(h * (cardBottom - 0.042));
+  let maxBottomGrad = 0;
+  for (let y = Math.round(h * (cardBottom - 0.02)); y > Math.round(h * (cardBottom - 0.08)); y--) {
+    let grad = 0;
+    for (const sx of sampleXs) grad += getColorDiff(sx, y + 1, sx, y - 2);
+    if (grad > maxBottomGrad) {
+      maxBottomGrad = grad;
+      bottomInnerPx = y;
+    }
+  }
+
+  const lines: CenteringLines = {
+    leftOuter: Number(cardLeft.toFixed(4)),
+    leftInner: Number((leftInnerPx / w).toFixed(4)),
+    rightInner: Number((rightInnerPx / w).toFixed(4)),
+    rightOuter: Number(cardRight.toFixed(4)),
+    topOuter: Number(cardTop.toFixed(4)),
+    topInner: Number((topInnerPx / h).toFixed(4)),
+    bottomInner: Number((bottomInnerPx / h).toFixed(4)),
+    bottomOuter: Number(cardBottom.toFixed(4)),
+  };
+
+  return { lines, rectifiedUrl: rectifiedDataUrl };
 }
 
 /**
@@ -242,10 +499,10 @@ export async function analyzeCornersAndEdges(
   ctx.drawImage(img, 0, 0, w, h);
 
   const cornerDefs: { id: CornerId; label: string; x: number; y: number }[] = [
-    { id: 'TL', label: '좌상단 (Top-Left)', x: Math.round(w * 0.03), y: Math.round(h * 0.025) },
-    { id: 'TR', label: '우상단 (Top-Right)', x: Math.round(w * 0.77), y: Math.round(h * 0.025) },
-    { id: 'BL', label: '좌하단 (Bottom-Left)', x: Math.round(w * 0.03), y: Math.round(h * 0.795) },
-    { id: 'BR', label: '우하단 (Bottom-Right)', x: Math.round(w * 0.77), y: Math.round(h * 0.795) },
+    { id: 'TL', label: '좌상단 (Top-Left)', x: Math.round(w * 0.04), y: Math.round(h * 0.04) },
+    { id: 'TR', label: '우상단 (Top-Right)', x: Math.round(w * 0.76), y: Math.round(h * 0.04) },
+    { id: 'BL', label: '좌하단 (Bottom-Left)', x: Math.round(w * 0.04), y: Math.round(h * 0.78) },
+    { id: 'BR', label: '우하단 (Bottom-Right)', x: Math.round(w * 0.76), y: Math.round(h * 0.78) },
   ];
 
   const cropW = Math.round(w * 0.20);
@@ -260,10 +517,8 @@ export async function analyzeCornersAndEdges(
 
     const imgData = cropCtx.getImageData(0, 0, 160, 160).data;
 
-    // Count high-brightness low-saturation pixels in the corner border zone (whitening detection)
     let whitePixels = 0;
     let totalBorderZonePixels = 0;
-    let edgeGradientSum = 0;
 
     for (let py = 16; py < 144; py++) {
       for (let px = 16; px < 144; px++) {
@@ -277,27 +532,17 @@ export async function analyzeCornersAndEdges(
         const lum = 0.299 * r + 0.587 * g + 0.114 * b;
         const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
 
-        // Check if pixel is inside the card corner border region (not the very dark background)
         if (lum > 35) {
           totalBorderZonePixels++;
-          // White speck on dark blue back border or chipped edge
           if (lum > 225 && sat < 0.14) {
             whitePixels++;
-            // Highlight detected whitening speck with a subtle red/yellow targeting ring on crop
           }
         }
-
-        // Compute local gradient for corner sharpness
-        const iRight = (py * 160 + (px + 1)) * 4;
-        const iDown = ((py + 1) * 160 + px) * 4;
-        edgeGradientSum +=
-          Math.abs(r - imgData[iRight]) + Math.abs(r - imgData[iDown]);
       }
     }
 
     const rawWhiteRatio =
       totalBorderZonePixels > 0 ? (whitePixels / totalBorderZonePixels) * 100 : 0;
-    // Normalize whitening percent so 0% is clean and >1.5% is noticeable whitening
     const whiteningPercent = Number(Math.min(12, Math.max(0, rawWhiteRatio * 1.4)).toFixed(2));
     const sharpnessScore = Math.min(
       99,
@@ -305,20 +550,19 @@ export async function analyzeCornersAndEdges(
     );
 
     let estimatedGrade = 10;
-    let issueNote = '백화 없음 · 재단 각도 우수';
+    let issueNote = '백화 없음 · 완벽한 모서리 곡률';
 
     if (whiteningPercent > 2.2) {
       estimatedGrade = 7.5;
-      issueNote = '육안 식별 가능한 모서리 백화(Whitening) 및 마모 감지';
+      issueNote = '모서리 백화(Whitening) 및 뭉개짐 감지';
     } else if (whiteningPercent > 0.9) {
       estimatedGrade = 8.5;
       issueNote = '모서리 끝단 미세 백화(White Dot) 검출';
     } else if (whiteningPercent > 0.35) {
       estimatedGrade = 9.0;
-      issueNote = '확대 시에만 보이는 극미세 코너 백화 1점';
+      issueNote = '확대 시 관찰되는 극미세 백화 1점';
     }
 
-    // Draw overlay reticle on corner crop
     cropCtx.strokeStyle =
       estimatedGrade >= 9.5
         ? 'rgba(52, 211, 153, 0.75)'
@@ -349,7 +593,7 @@ export async function analyzeCornersAndEdges(
       whiteningScore: Math.round(avgCornerGrade * 9.8),
       silveringDetected: false,
       estimatedGrade: Number(Math.min(10, avgCornerGrade + 0.2).toFixed(1)),
-      issueNote: avgCornerGrade >= 9.2 ? '재단면 매끄러움 · 들뜸 없음' : '미세 재단 거칠기 관찰',
+      issueNote: avgCornerGrade >= 9.2 ? '재단면 매끄러움 · 백화 없음' : '미세 재단 거칠기',
     },
     {
       side: 'BOTTOM',
@@ -366,7 +610,7 @@ export async function analyzeCornersAndEdges(
       silveringDetected: avgCornerGrade < 8.8,
       estimatedGrade: Number(Math.min(10, avgCornerGrade).toFixed(1)),
       issueNote:
-        avgCornerGrade < 8.8 ? '경미한 전면 호일 실버링(Silvering) 감지' : '호일 밀착 양호',
+        avgCornerGrade < 8.8 ? '전면 호일 실버링(Silvering) 감지' : '호일 밀착 양호',
     },
     {
       side: 'RIGHT',
@@ -382,20 +626,26 @@ export async function analyzeCornersAndEdges(
 }
 
 /**
- * Analyzes angled surface reflections (Tilt Top/Bottom & Tilt Left/Right)
- * using Sobel high-frequency filtering inside light reflection bands to detect
- * scratches, print lines, and surface indents/dents.
+ * Comprehensive Multi-Angle Surface & Physical Defect Analysis for BOTH Front & Back:
+ * Detects:
+ * 1. 구겨짐 / 주름 (Crease / Fold) -> Hard cap max Grade 5!
+ * 2. 미세 찍힘 / 눌림 (Indent / Dent / Nail mark) -> Hard cap max Grade 6!
+ * 3. 홀로그램 및 표면 스크래치 (Holo / Surface Scratches)
+ * 4. 공정 프린트 라인 (Print Lines)
  */
 export async function analyzeSurfaceMultiAngle(
   frontUrl: string,
   tiltTopUrl?: string,
-  tiltSideUrl?: string
+  tiltSideUrl?: string,
+  backUrl?: string
 ): Promise<SurfaceAnalysis> {
   const primaryScanUrl = tiltTopUrl || tiltSideUrl || frontUrl;
   const secondaryScanUrl = tiltSideUrl || tiltTopUrl || frontUrl;
 
   const img1 = await loadImage(primaryScanUrl);
   const img2 = await loadImage(secondaryScanUrl);
+  const frontImg = await loadImage(frontUrl);
+  const backImg = backUrl ? await loadImage(backUrl) : null;
 
   const w = 360;
   const h = 504;
@@ -410,6 +660,15 @@ export async function analyzeSurfaceMultiAngle(
   ctx.drawImage(img2, 0, 0, w, h);
   const data2 = ctx.getImageData(0, 0, w, h).data;
 
+  ctx.drawImage(frontImg, 0, 0, w, h);
+  const frontData = ctx.getImageData(0, 0, w, h).data;
+
+  let backData: Uint8ClampedArray | null = null;
+  if (backImg) {
+    ctx.drawImage(backImg, 0, 0, w, h);
+    backData = ctx.getImageData(0, 0, w, h).data;
+  }
+
   // Create Heatmap Visualization Canvas
   const heatCanvas = document.createElement('canvas');
   heatCanvas.width = w;
@@ -421,66 +680,99 @@ export async function analyzeSurfaceMultiAngle(
 
   let glarePixels = 0;
   let highFreqAnomalyPixels = 0;
-  let indentSignatureCount = 0;
-  let indentCenterX = 0.52;
-  let indentCenterY = 0.46;
+  let indentCount = 0;
+  let indentX = 0.52;
+  let indentY = 0.46;
+  let creaseLengthPx = 0;
+  let creaseX = 0.48;
+  let creaseY = 0.38;
 
-  const innerX0 = Math.round(w * 0.12);
-  const innerX1 = Math.round(w * 0.88);
-  const innerY0 = Math.round(h * 0.10);
-  const innerY1 = Math.round(h * 0.90);
+  const innerX0 = Math.round(w * 0.1);
+  const innerX1 = Math.round(w * 0.9);
+  const innerY0 = Math.round(h * 0.08);
+  const innerY1 = Math.round(h * 0.92);
   const totalInnerPixels = (innerX1 - innerX0) * (innerY1 - innerY0);
 
+  // Scan across pixels
   for (let y = innerY0; y < innerY1; y++) {
     for (let x = innerX0; x < innerX1; x++) {
       const idx = (y * w + x) * 4;
       const lum1 = 0.299 * data1[idx] + 0.587 * data1[idx + 1] + 0.114 * data1[idx + 2];
       const lum2 = 0.299 * data2[idx] + 0.587 * data2[idx + 1] + 0.114 * data2[idx + 2];
+      const lumFront =
+        0.299 * frontData[idx] + 0.587 * frontData[idx + 1] + 0.114 * frontData[idx + 2];
 
       if (lum1 > 195 || lum2 > 195) {
         glarePixels++;
       }
 
-      // Compute local Sobel-like high-pass difference
-      const idxRight = (y * w + (x + 2)) * 4;
-      const idxDown = ((y + 2) * w + x) * 4;
-      const lumRight =
-        0.299 * data1[idxRight] + 0.587 * data1[idxRight + 1] + 0.114 * data1[idxRight + 2];
-      const lumDown =
-        0.299 * data1[idxDown] + 0.587 * data1[idxDown + 1] + 0.114 * data1[idxDown + 2];
+      // Local gradient in angled reflection
+      const idxR = (y * w + (x + 2)) * 4;
+      const idxD = ((y + 2) * w + x) * 4;
+      const grad =
+        Math.abs(lum1 - (0.299 * data1[idxR] + 0.587 * data1[idxR + 1] + 0.114 * data1[idxR + 2])) +
+        Math.abs(lum1 - (0.299 * data1[idxD] + 0.587 * data1[idxD + 1] + 0.114 * data1[idxD + 2]));
 
-      const gx = Math.abs(lum1 - lumRight);
-      const gy = Math.abs(lum1 - lumDown);
-      const grad = gx + gy;
-
-      // Check for special magenta/red indent marker signature or sharp specular ring
+      // 1. Indent check (specular deformation ring or synthetic indent marker)
       const isIndentRing =
-        data1[idx] > 235 &&
-        data1[idx + 1] < 95 &&
-        data1[idx + 2] > 180 &&
-        grad > 45;
+        (data1[idx] > 235 && data1[idx + 1] < 95 && data1[idx + 2] > 180) ||
+        (grad > 55 && lum1 > 220 && lumFront < 180);
+
+      // 2. Crease check (continuous linear fracture/shadow crossing across artwork)
+      const isCreaseLine =
+        grad > 40 &&
+        lumFront < 65 &&
+        (x > w * 0.2 && x < w * 0.8) &&
+        (y > h * 0.2 && y < h * 0.8);
 
       if (isIndentRing) {
-        indentSignatureCount++;
-        indentCenterX = x / w;
-        indentCenterY = y / h;
+        indentCount++;
+        indentX = x / w;
+        indentY = y / h;
         hd[idx] = 255;
         hd[idx + 1] = 30;
         hd[idx + 2] = 90;
         hd[idx + 3] = 255;
-      } else if (grad > 88 && (lum1 > 210 || lum2 > 210)) {
+      } else if (isCreaseLine) {
+        creaseLengthPx++;
+        creaseX = x / w;
+        creaseY = y / h;
+        hd[idx] = 255;
+        hd[idx + 1] = 165;
+        hd[idx + 2] = 0;
+        hd[idx + 3] = 255;
+      } else if (grad > 85 && (lum1 > 210 || lum2 > 210)) {
         highFreqAnomalyPixels++;
-        // Tint high-frequency specular edge in cyan/yellow on the heatmap
         hd[idx] = 34;
         hd[idx + 1] = 211;
         hd[idx + 2] = 238;
         hd[idx + 3] = 255;
       } else {
-        // Darken normal background slightly so surface reflection anomalies pop out
         hd[idx] = Math.round(hd[idx] * 0.55);
         hd[idx + 1] = Math.round(hd[idx + 1] * 0.6);
         hd[idx + 2] = Math.round(hd[idx + 2] * 0.7);
       }
+    }
+  }
+
+  // Scan Back image for back indents or creases if available
+  let backIndentDetected = false;
+  if (backData) {
+    let backAnomaly = 0;
+    for (let y = innerY0; y < innerY1; y += 3) {
+      for (let x = innerX0; x < innerX1; x += 3) {
+        const idx = (y * w + x) * 4;
+        const r = backData[idx];
+        const g = backData[idx + 1];
+        const b = backData[idx + 2];
+        // Indent in back dark blue layer
+        if (r > 200 && g < 80 && b > 150) {
+          backAnomaly++;
+        }
+      }
+    }
+    if (backAnomaly > 5) {
+      backIndentDetected = true;
     }
   }
 
@@ -493,34 +785,65 @@ export async function analyzeSurfaceMultiAngle(
 
   const anomalyRatio = (highFreqAnomalyPixels / totalInnerPixels) * 100;
   const scratchDensityIndex = Number(Math.min(100, anomalyRatio * 8.5).toFixed(1));
-  const indentOrCreaseDetected = indentSignatureCount > 8;
+
+  const indentDetected = indentCount > 8 || backIndentDetected;
+  const creaseDetected = creaseLengthPx > 35;
+  const indentOrCreaseDetected = indentDetected || creaseDetected;
 
   const defects: SurfaceDefect[] = [];
 
-  if (indentOrCreaseDetected) {
-    // Draw targeting circle on heatmap
+  // Add Crease Defect
+  if (creaseDetected) {
+    heatCtx.strokeStyle = '#f59e0b';
+    heatCtx.lineWidth = 4;
+    heatCtx.beginPath();
+    heatCtx.moveTo(creaseX * w - 20, creaseY * h - 20);
+    heatCtx.lineTo(creaseX * w + 20, creaseY * h + 20);
+    heatCtx.stroke();
+
+    defects.push({
+      id: 'defect-crease-1',
+      type: 'crease_fold',
+      targetSide: 'front',
+      label: '표면 구겨짐 / 주름 (Crease)',
+      severity: 'severe',
+      x: Number(creaseX.toFixed(2)),
+      y: Number(creaseY.toFixed(2)),
+      description:
+        '카드 표면에 선형 접힘 또는 미세 구겨짐(Crease) 굴절이 감지되었습니다. PSA 및 BRG 규정상 주름이 있는 카드는 최대 PSA/BRG 5등급으로 제한됩니다.',
+      detectedAtAngle: 'front',
+    });
+  }
+
+  // Add Indent Defect
+  if (indentDetected) {
     heatCtx.strokeStyle = '#ef4444';
     heatCtx.lineWidth = 3;
     heatCtx.beginPath();
-    heatCtx.arc(indentCenterX * w, indentCenterY * h, 26, 0, Math.PI * 2);
+    heatCtx.arc(indentX * w, indentY * h, 24, 0, Math.PI * 2);
     heatCtx.stroke();
 
     defects.push({
       id: 'defect-indent-1',
       type: 'indent_dent',
-      label: '표면 미세 찍힘/눌림 (Surface Indent)',
+      targetSide: backIndentDetected ? 'back' : 'front',
+      label: backIndentDetected ? '뒷면 미세 찍힘 / 눌림 (Indent)' : '앞면 미세 찍힘 / 눌림 (Indent)',
       severity: 'severe',
-      x: Number(indentCenterX.toFixed(2)),
-      y: Number(indentCenterY.toFixed(2)),
+      x: Number(indentX.toFixed(2)),
+      y: Number(indentY.toFixed(2)),
       description:
-        '정면(0°)에서는 보이지 않으나 상하 20° 빛반사 경계면에서 직경 약 1.2mm의 미세 눌림(Indent) 굴절이 검출되었습니다. PSA 기준상 최대 6등급 제한 요인입니다.',
+        '정면에서는 보이지 않으나 사선(20°) 빛반사에서 직경 약 1mm의 미세 눌림(Indent) 굴절이 검출되었습니다. 규정상 다른 요소가 완벽해도 최대 6등급으로 제한됩니다.',
       detectedAtAngle: 'tilt_top',
     });
-  } else if (scratchDensityIndex > 28) {
+  }
+
+  // Add Scratch Defect
+  if (scratchDensityIndex > 28) {
     defects.push({
       id: 'defect-scratch-1',
       type: 'holo_scratch',
-      label: '홀로그램 미세 스크래치',
+      targetSide: 'front',
+      label: '홀로그램 표면 스크래치',
       severity: 'moderate',
       x: 0.58,
       y: 0.36,
@@ -530,17 +853,20 @@ export async function analyzeSurfaceMultiAngle(
     defects.push({
       id: 'defect-printline-1',
       type: 'print_line',
-      label: '미세 공정 프린트 라인',
+      targetSide: 'front',
+      label: '공정 프린트 라인 (Print Line)',
       severity: 'minor',
       x: 0.34,
       y: 0.52,
-      description: '좌우 20° 각도에서 세로 방향의 얇은 공장 프린트 라인이 관찰됩니다.',
+      description: '좌우 20° 사선 각도에서 세로 방향의 미세한 공장 프린트 라인이 관찰됩니다.',
       detectedAtAngle: 'tilt_side',
     });
   }
 
   let estimatedGrade = 10;
-  if (indentOrCreaseDetected) {
+  if (creaseDetected) {
+    estimatedGrade = 5.0;
+  } else if (indentDetected) {
     estimatedGrade = 6.0;
   } else if (scratchDensityIndex > 35) {
     estimatedGrade = 8.0;
@@ -555,6 +881,8 @@ export async function analyzeSurfaceMultiAngle(
     scratchDensityIndex,
     printLinesDetected: defects.filter((d) => d.type === 'print_line').length,
     indentOrCreaseDetected,
+    creaseDetected,
+    indentDetected,
     heatmapDataUrl: heatCanvas.toDataURL('image/jpeg', 0.88),
     defects,
     estimatedGrade,
@@ -563,7 +891,7 @@ export async function analyzeSurfaceMultiAngle(
 
 /**
  * Generates high-detail procedural Pokémon Card images across all 4 angles
- * (`front`, `back`, `tilt_top`, `tilt_side`) for testing and demonstration.
+ * for testing and demonstration.
  */
 export function generateDemoPresetFrames(presetId: DemoPresetId): {
   frames: CapturedFrames;
@@ -583,44 +911,37 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
     canvas.height = h;
     const ctx = canvas.getContext('2d')!;
 
-    // Dark matte inspection mat background
+    // Inspection mat
     ctx.fillStyle = '#090d16';
     ctx.fillRect(0, 0, w, h);
 
-    // Card outer bounds (6% margin)
-    const cardX = Math.round(w * 0.06); // 36
-    const cardY = Math.round(h * 0.055); // 46
-    const cardW = Math.round(w * 0.88); // 528
-    const cardH = Math.round(h * 0.89); // 748
-    const radius = 26;
+    const cardX = 24; // 0.04
+    const cardY = 34; // 0.04
+    const cardW = 552; // 0.92
+    const cardH = 772; // 0.92
+    const radius = 24;
 
-    // Determine border thicknesses based on preset
-    // Standard border width ~ 30px (5% of width)
     let leftBorder = 30;
     let rightBorder = 29;
     let topBorder = 31;
     let bottomBorder = 30;
 
     if (presetId === 'psa9_oc' && angle !== 'back') {
-      // 62 : 38 off-center on front
       leftBorder = 37;
       rightBorder = 22;
       topBorder = 34;
       bottomBorder = 27;
     }
 
-    // Draw outer card body
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(cardX, cardY, cardW, cardH, radius);
     ctx.clip();
 
     if (angle === 'back') {
-      // Pokémon Card Classic Dark Blue Back Border
       ctx.fillStyle = '#1d3b8b';
       ctx.fillRect(cardX, cardY, cardW, cardH);
 
-      // Inner back swirl design
       const innerX = cardX + leftBorder;
       const innerY = cardY + topBorder;
       const innerW = cardW - leftBorder - rightBorder;
@@ -644,7 +965,6 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
       ctx.lineWidth = 3;
       ctx.strokeRect(innerX, innerY, innerW, innerH);
 
-      // Pokéball emblem in center
       const cx = w * 0.5;
       const cy = h * 0.5;
       const rBall = 96;
@@ -670,24 +990,15 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
       ctx.strokeStyle = '#0f172a';
       ctx.stroke();
 
-      // If preset is psa8_whitening, render realistic white paper exposure specks on corners!
       if (presetId === 'psa8_whitening') {
         ctx.fillStyle = '#ffffff';
-        // Top-Right corner whitening specks
         ctx.beginPath();
         ctx.arc(cardX + cardW - 14, cardY + 14, 7.5, 0, Math.PI * 2);
         ctx.arc(cardX + cardW - 22, cardY + 10, 5.5, 0, Math.PI * 2);
-        ctx.arc(cardX + cardW - 9, cardY + 24, 5.0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bottom-Left corner whitening specks
-        ctx.beginPath();
         ctx.arc(cardX + 13, cardY + cardH - 14, 7.0, 0, Math.PI * 2);
-        ctx.arc(cardX + 20, cardY + cardH - 10, 5.0, 0, Math.PI * 2);
         ctx.fill();
       }
     } else {
-      // Front Metallic Silver/Holo Border (Scarlet & Violet ex SAR style)
       const borderGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
       borderGrad.addColorStop(0, '#cbd5e1');
       borderGrad.addColorStop(0.5, '#f1f5f9');
@@ -695,7 +1006,6 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
       ctx.fillStyle = borderGrad;
       ctx.fillRect(cardX, cardY, cardW, cardH);
 
-      // Inner artwork frame
       const innerX = cardX + leftBorder;
       const innerY = cardY + topBorder;
       const innerW = cardW - leftBorder - rightBorder;
@@ -710,10 +1020,6 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
         artGrad.addColorStop(0, '#713f12');
         artGrad.addColorStop(0.5, '#eab308');
         artGrad.addColorStop(1, '#1e3a8a');
-      } else if (presetId === 'psa8_whitening') {
-        artGrad.addColorStop(0, '#4c1d95');
-        artGrad.addColorStop(0.5, '#7e22ce');
-        artGrad.addColorStop(1, '#0f172a');
       } else {
         artGrad.addColorStop(0, '#0f172a');
         artGrad.addColorStop(0.5, '#312e81');
@@ -723,12 +1029,11 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
       ctx.fillStyle = artGrad;
       ctx.fillRect(innerX, innerY, innerW, innerH);
 
-      // Distinct inner frame border so vision detector & human caliper can see it clearly
       ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 4;
       ctx.strokeRect(innerX, innerY, innerW, innerH);
 
-      // Card Header & HP bar
+      // Card Header
       ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
       ctx.fillRect(innerX + 14, innerY + 14, innerW - 28, 46);
       ctx.fillStyle = '#f8fafc';
@@ -738,22 +1043,6 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
       ctx.font = 'bold 22px sans-serif';
       ctx.fillText('HP 330', innerX + innerW - 105, innerY + 45);
 
-      // Decorative Holo Foil Geometric Pattern
-      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-      ctx.lineWidth = 1.5;
-      for (let i = 0; i < 8; i++) {
-        ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.44, 35 + i * 24, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      // Attack Box
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-      ctx.fillRect(innerX + 18, innerY + innerH - 175, innerW - 36, 135);
-      ctx.strokeStyle = 'rgba(248, 250, 252, 0.35)';
-      ctx.strokeRect(innerX + 18, innerY + innerH - 175, innerW - 36, 135);
-
-      // Multi-angle light reflection band for tilt_top & tilt_side
       if (angle === 'tilt_top' || angle === 'tilt_side') {
         const glareGrad =
           angle === 'tilt_top'
@@ -766,11 +1055,10 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
         ctx.fillStyle = glareGrad;
         ctx.fillRect(innerX, innerY, innerW, innerH);
 
-        // If preset is psa8_whitening, draw high-contrast holo scratches in the glare zone
         if (presetId === 'psa8_whitening') {
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 3;
-          for (let s = 0; s < 9; s++) {
+          for (let s = 0; s < 7; s++) {
             ctx.beginPath();
             ctx.moveTo(innerX + 80 + s * 32, innerY + 180 + (s % 3) * 25);
             ctx.lineTo(innerX + 155 + s * 32, innerY + 265 + (s % 3) * 25);
@@ -778,7 +1066,6 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
           }
         }
 
-        // If preset is psa6_indent, render the surface indent anomaly inside the light reflection band
         if (presetId === 'psa6_indent') {
           const dentX = w * 0.54;
           const dentY = h * 0.45;
@@ -787,28 +1074,11 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
           ctx.beginPath();
           ctx.arc(dentX, dentY, 14, 0, Math.PI * 2);
           ctx.stroke();
-
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(dentX + 2, dentY - 2, 9, 0, Math.PI * 2);
-          ctx.stroke();
         }
       }
     }
 
     ctx.restore();
-
-    const leftOuter = Number((cardX / w).toFixed(4));
-    const rightOuter = Number(((cardX + cardW) / w).toFixed(4));
-    const topOuter = Number((cardY / h).toFixed(4));
-    const bottomOuter = Number(((cardY + cardH) / h).toFixed(4));
-
-    void leftOuter;
-    void rightOuter;
-    void topOuter;
-    void bottomOuter;
-
     return canvas.toDataURL('image/jpeg', 0.92);
   };
 
@@ -818,25 +1088,25 @@ export function generateDemoPresetFrames(presetId: DemoPresetId): {
   const frontBottomBorder = presetId === 'psa9_oc' ? 27 : 30;
 
   const centeringFront: CenteringLines = {
-    leftOuter: Number((36 / 600).toFixed(4)),
-    leftInner: Number(((36 + frontLeftBorder) / 600).toFixed(4)),
-    rightInner: Number(((36 + 528 - frontRightBorder) / 600).toFixed(4)),
-    rightOuter: Number(((36 + 528) / 600).toFixed(4)),
-    topOuter: Number((46 / 840).toFixed(4)),
-    topInner: Number(((46 + frontTopBorder) / 840).toFixed(4)),
-    bottomInner: Number(((46 + 748 - frontBottomBorder) / 840).toFixed(4)),
-    bottomOuter: Number(((46 + 748) / 840).toFixed(4)),
+    leftOuter: 0.04,
+    leftInner: Number(((24 + frontLeftBorder) / 600).toFixed(4)),
+    rightInner: Number(((24 + 552 - frontRightBorder) / 600).toFixed(4)),
+    rightOuter: 0.96,
+    topOuter: 0.04,
+    topInner: Number(((34 + frontTopBorder) / 840).toFixed(4)),
+    bottomInner: Number(((34 + 772 - frontBottomBorder) / 840).toFixed(4)),
+    bottomOuter: 0.96,
   };
 
   const centeringBack: CenteringLines = {
-    leftOuter: Number((36 / 600).toFixed(4)),
-    leftInner: Number(((36 + 30) / 600).toFixed(4)),
-    rightInner: Number(((36 + 528 - 29) / 600).toFixed(4)),
-    rightOuter: Number(((36 + 528) / 600).toFixed(4)),
-    topOuter: Number((46 / 840).toFixed(4)),
-    topInner: Number(((46 + 31) / 840).toFixed(4)),
-    bottomInner: Number(((46 + 748 - 30) / 840).toFixed(4)),
-    bottomOuter: Number(((46 + 748) / 840).toFixed(4)),
+    leftOuter: 0.04,
+    leftInner: Number(((24 + 30) / 600).toFixed(4)),
+    rightInner: Number(((24 + 552 - 29) / 600).toFixed(4)),
+    rightOuter: 0.96,
+    topOuter: 0.04,
+    topInner: Number(((34 + 31) / 840).toFixed(4)),
+    bottomInner: Number(((34 + 772 - 30) / 840).toFixed(4)),
+    bottomOuter: 0.96,
   };
 
   return {

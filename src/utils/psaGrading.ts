@@ -14,61 +14,59 @@ export const SCAN_STEPS: ScanStepMeta[] = [
   {
     id: 'front',
     stepNumber: 1,
-    title: 'STEP 1. 전면 수직 스캔 (0°)',
-    subtitle: '카드를 바닥에 평평하게 놓고 정면 수직(0°)에서 촬영하세요',
-    targetAngleLabel: '수직 0° (정면 센터링 & 일러스트 프레임)',
+    title: 'STEP 1. 전면 정면 스캔 (0°)',
+    subtitle: '카드 앞면을 카메라 정면(0°)에서 촬영하세요',
+    targetAngleLabel: '정면 0° (전면 센터링 및 프레임 스캔)',
     recommendedPitch: [-6, 6],
     recommendedRoll: [-6, 6],
-    focusArea: '전면 좌우/상하 테두리 비율 및 전면 실버링',
+    focusArea: '전면 좌우/상하 테두리 비율 및 전면 실버링/구겨짐',
     inspectionPoints: [
+      '배경(방바닥, 책상 등) 자동 분리 및 원근 사다리꼴 왜곡 보정',
       '전면 좌·우, 상·하 테두리 두께 비율 정밀 측정',
-      '전면 4개 모서리 곡률(Rounding) 및 호일 들뜸(Silvering) 확인',
-      '빛 반사가 일러스트를 가리지 않도록 수직 유지',
+      '표면 접힘/주름(Crease) 유무 자동 감지',
     ],
   },
   {
     id: 'back',
     stepNumber: 2,
-    title: 'STEP 2. 후면 수직 스캔 (0°)',
-    subtitle: '카드를 뒤집어 후면 파란 테두리와 모서리 백화(Whitening)를 촬영하세요',
-    targetAngleLabel: '수직 0° (후면 센터링 & 백화 정밀 감지)',
+    title: 'STEP 2. 후면 정면 스캔 (0°)',
+    subtitle: '카드를 뒤집어 후면 파란 테두리를 촬영하세요',
+    targetAngleLabel: '정면 0° (후면 센터링 및 백화 스캔)',
     recommendedPitch: [-6, 6],
     recommendedRoll: [-6, 6],
     focusArea: '후면 모서리/엣지 백화(하얀 점) 및 후면 센터링',
     inspectionPoints: [
-      '포켓몬카드 감정의 핵심인 후면 짙은 파란색 테두리의 백화(Whitening) 픽셀 추출',
+      '후면 파란색 테두리의 백화(Whitening) 픽셀 정밀 추출',
       '후면 좌·우, 상·하 센터링 측정',
-      '재단면 거칠기(Rough Cut) 및 코너 뭉개짐 분석',
+      '뒷면 찍힘(Indent) 및 스크래치 감지',
     ],
   },
   {
     id: 'tilt_top',
     stepNumber: 3,
     title: 'STEP 3. 상·하단 20° 빛반사 스캔',
-    subtitle: '카메라를 상/하 15°~25° 기울여 빛이 카드 표면을 스치게 촬영하세요',
-    targetAngleLabel: '상하 기울기 15°~25° (홀로그램 미세 기스 & 눌림 감지)',
+    subtitle: '카메라를 상/하 15°~25° 기울여 빛이 표면을 스치게 촬영하세요',
+    targetAngleLabel: '상하 20° 빛반사 (홀로그램 미세 기스 & 찍힘 감지)',
     recommendedPitch: [12, 30],
     recommendedRoll: [-10, 10],
-    focusArea: '표면 가로 방향 스크래치, 미세 찍힘(Indent), 엠보싱 결',
+    focusArea: '표면 가로 방향 스크래치, 미세 찍힘(Indent)',
     inspectionPoints: [
-      '수직 촬영에서는 절대 보이지 않는 홀로그램 미세 스크래치 검출',
-      '표면 눌림/찍힘(Indent/Dent) 유무 확인',
-      '텍스처(SAR/UR 특수 가공) 손상 및 오염 확인',
+      '수직 촬영에서 보이지 않는 홀로그램 미세 스크래치 검출',
+      '표면 미세 눌림/찍힘(Indent/Dent) 감지 (감지 시 최대 6등급 제한)',
     ],
   },
   {
     id: 'tilt_side',
     stepNumber: 4,
     title: 'STEP 4. 좌·우측 20° 사선 스캔',
-    subtitle: '카메라를 좌/우 15°~25° 기울여 세로 프린트 라인과 엣지 단면을 비추세요',
-    targetAngleLabel: '좌우 기울기 15°~25° (공장 프린트 라인 & 테두리 단면)',
+    subtitle: '카메라를 좌/우 15°~25° 기울여 세로 프린트 라인을 비추세요',
+    targetAngleLabel: '좌우 20° 빛반사 (공장 프린트 라인 & 테두리 단면)',
     recommendedPitch: [-10, 10],
     recommendedRoll: [12, 30],
-    focusArea: '세로 프린트 라인(Print Line), 호일 리프트, 기포',
+    focusArea: '세로 프린트 라인(Print Line), 테두리 들뜸',
     inspectionPoints: [
-      '포켓몬 홀로그램 카드 특유의 수직/수평 공정 프린트 라인 검출',
-      '사선 조명에서 드러나는 테두리 들뜸(Edge Lift) 확인',
-      '다각도 합성 표면 히트맵(Surface Heatmap) 생성',
+      '공정 세로/가로 프린트 라인 검출',
+      '다각도 종합 결함 히트맵 생성',
     ],
   },
 ];
@@ -81,7 +79,7 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '55:45 ~ 60:40 이내',
     backCenteringRule: '75:25 이내',
     description:
-      '4개의 모서리가 완벽히 날카롭고 백화가 없으며, 원래의 광택과 표면이 보존된 최상위 등급입니다. 미세한 인쇄 오차만 허용됩니다.',
+      '4개의 모서리가 완벽히 날카롭고 백화가 없으며, 원래의 광택과 표면이 보존된 최상위 등급입니다. 미세 인쇄 오차만 허용됩니다.',
     badgeColor: 'from-amber-400 via-yellow-500 to-red-600',
   },
   9: {
@@ -91,7 +89,7 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '60:40 ~ 65:35 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '언뜻 보기에 완벽해 보이나, 정밀 확대 시 후면 코너의 극미세한 백화 1점, 미세한 센터링 편차 또는 가벼운 표면 기스 중 1가지 결점이 있는 상태입니다.',
+      '외관상 완벽해 보이나, 정밀 확대 시 후면 코너의 극미세한 백화 1점, 미세한 센터링 편차 또는 가벼운 표면 기스 중 1가지 결점이 있는 상태입니다.',
     badgeColor: 'from-emerald-400 to-teal-600',
   },
   8: {
@@ -101,7 +99,7 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '65:35 ~ 70:30 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '2~3곳의 모서리에 경미한 백화나 마모가 있거나, 빛 반사 시 확인되는 가벼운 홀로그램 스크래치/프린트 라인이 존재하는 상태입니다.',
+      '2~3곳의 모서리에 경미한 백화가 있거나, 사선 빛반사에서 가벼운 홀로그램 스크래치/프린트 라인이 존재하는 상태입니다.',
     badgeColor: 'from-sky-400 to-blue-600',
   },
   7: {
@@ -111,7 +109,7 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '70:30 ~ 75:25 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '모서리 백화와 테두리 까짐이 육안으로 확인되며, 표면 광택 저하나 복수의 홀로그램 스크래치가 관찰됩니다.',
+      '모서리 백화와 테두리 까짐이 육안으로 확인되며, 복수의 홀로그램 스크래치가 관찰됩니다.',
     badgeColor: 'from-indigo-400 to-purple-600',
   },
   6: {
@@ -121,17 +119,17 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '80:20 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '센터링과 코너가 완벽하더라도 빛 반사 각도에서 표면 미세 눌림(Indent/Dent)이나 손톱 자국이 발견되면 PSA 기준상 최대 6등급으로 제한됩니다.',
+      '센터링과 코너가 완벽하더라도 사선 빛반사에서 표면 미세 눌림(Indent/Dent)이나 손톱 자국이 발견되면 PSA 기준상 최대 6등급으로 제한됩니다.',
     badgeColor: 'from-orange-400 to-amber-700',
   },
   5: {
     grade: 5,
     code: 'EX 5',
-    titleKo: '엑설런트 (뚜렷한 마모 및 주름)',
+    titleKo: '엑설런트 (주름/구겨짐 제한 등급)',
     frontCenteringRule: '85:15 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '모서리 뭉개짐, 테두리 다수 백화, 또는 얕은 표면 주름(Crease) 및 스크래치가 다수 존재하는 상태입니다.',
+      '카드 표면에 접힘이나 구겨짐(Crease) 주름이 감지되면 PSA 기준상 최대 5등급으로 제한됩니다.',
     badgeColor: 'from-slate-400 to-slate-600',
   },
 };
@@ -140,11 +138,11 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
   10: {
     grade: 10,
     code: 'BRG 10 GEM MINT',
-    titleKo: '젬 민트 (골드/블랙 라벨급 최상위)',
-    frontCenteringRule: '55:45 이내 (블랙라벨 50:50)',
+    titleKo: '젬 민트 (골드/블랙라벨급 최상위)',
+    frontCenteringRule: '55:45 이내',
     backCenteringRule: '70:30 이내',
     description:
-      'BRG 최고 등급으로 4대 세부 항목(센터링·코너·엣지·표면) 중 최소 3개 항목이 10점이고 최저 항목이 9.5점 이상일 때 부여됩니다. 전면 55:45 이내의 엄격한 칼센터링이 요구됩니다.',
+      'BRG 최고 등급으로 센터링이 55:45 이내이고 코너·엣지·표면 모두 9.5점 이상일 때 부여됩니다.',
     badgeColor: 'from-amber-400 via-yellow-500 to-blue-700',
   },
   9.5: {
@@ -154,7 +152,7 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '58:42 이내',
     backCenteringRule: '75:25 이내',
     description:
-      'BRG 특유의 0.5점 단위 상위 등급으로, PSA 10과 PSA 9 사이의 준완벽 컨디션입니다. 센터링이 56:44~58:42이거나 극미세 재단 점 1곳만 존재할 때 부여됩니다.',
+      'BRG 고유의 0.5점 단위 상위 등급으로, PSA 10과 PSA 9 사이의 준완벽 컨디션입니다.',
     badgeColor: 'from-blue-400 via-indigo-500 to-blue-700',
   },
   9: {
@@ -164,7 +162,7 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '60:40 이내',
     backCenteringRule: '80:20 이내',
     description:
-      '전면 센터링이 60:40 이내이며, 확대 관찰 시 코너 백화 1~2점 또는 미세한 공정 프린트 라인이 존재하는 상태입니다.',
+      '전면 센터링이 60:40 이내이며, 미세한 코너 백화 1~2점 또는 미세 기스가 있는 상태입니다.',
     badgeColor: 'from-emerald-400 to-teal-600',
   },
   8.5: {
@@ -174,7 +172,7 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '63:37 이내',
     backCenteringRule: '85:15 이내',
     description:
-      '전면 센터링 편차 또는 후면 테두리에 경미한 백화와 가벼운 홀로그램 기스가 동반된 상태입니다.',
+      '전면 센터링 편차 또는 후면 테두리에 경미한 백화와 가벼운 기스가 동반된 상태입니다.',
     badgeColor: 'from-sky-400 to-blue-600',
   },
   8: {
@@ -184,7 +182,7 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '65:35 이내',
     backCenteringRule: '85:15 이내',
     description:
-      '모서리 2~3곳의 백화 또는 사선 빛반사에서 확인되는 홀로그램 스크래치가 뚜렷한 상태입니다.',
+      '모서리 2~3곳의 백화 또는 빛반사에서 확인되는 스크래치가 뚜렷한 상태입니다.',
     badgeColor: 'from-indigo-400 to-purple-600',
   },
   7: {
@@ -194,18 +192,28 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     frontCenteringRule: '70:30 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '코너 뭉개짐과 테두리 백화가 육안으로 쉽게 식별되며, 표면 광택 저하가 동반된 상태입니다.',
+      '코너 뭉개짐과 테두리 백화가 육안으로 쉽게 식별되는 상태입니다.',
     badgeColor: 'from-purple-400 to-slate-600',
   },
   6: {
     grade: 6,
     code: 'BRG 6 EX-MT',
-    titleKo: '엑설런트-민트 (표면 눌림/찍힘 제한)',
+    titleKo: '엑설런트-민트 (표면 찍힘/눌림 제한)',
     frontCenteringRule: '75:25 이내',
     backCenteringRule: '90:10 이내',
     description:
-      '빛 반사 스캔에서 표면 미세 눌림(Indent/Dent)이나 찍힘이 검출된 경우 BRG 규정상 다른 항목이 10점이어도 최대 6~6.5등급으로 제한됩니다.',
+      '표면 미세 눌림(Indent)이나 찍힘이 검출된 경우 BRG 규정상 최대 6~6.5등급으로 제한됩니다.',
     badgeColor: 'from-orange-400 to-amber-700',
+  },
+  5: {
+    grade: 5,
+    code: 'BRG 5 EX',
+    titleKo: '엑설런트 (주름/구겨짐 제한)',
+    frontCenteringRule: '80:20 이내',
+    backCenteringRule: '90:10 이내',
+    description:
+      '표면 접힘 또는 구겨짐(Crease) 주름이 감지된 카드는 BRG 규정상 최대 5등급으로 제한됩니다.',
+    badgeColor: 'from-slate-400 to-slate-600',
   },
 };
 
@@ -214,10 +222,10 @@ export function calculateCenteringMetrics(
   side: 'front' | 'back',
   company: GradingCompany = 'PSA'
 ): CenteringMetrics {
-  const leftWidth = Math.max(0.002, lines.leftInner - lines.leftOuter);
-  const rightWidth = Math.max(0.002, lines.rightOuter - lines.rightInner);
-  const topWidth = Math.max(0.002, lines.topInner - lines.topOuter);
-  const bottomWidth = Math.max(0.002, lines.bottomOuter - lines.bottomInner);
+  const leftWidth = Math.max(0.001, lines.leftInner - lines.leftOuter);
+  const rightWidth = Math.max(0.001, lines.rightOuter - lines.rightInner);
+  const topWidth = Math.max(0.001, lines.topInner - lines.topOuter);
+  const bottomWidth = Math.max(0.001, lines.bottomOuter - lines.bottomInner);
 
   const totalH = leftWidth + rightWidth;
   const totalV = topWidth + bottomWidth;
@@ -231,63 +239,44 @@ export function calculateCenteringMetrics(
   const maxVerticalRatio = Math.max(topPercent, bottomPercent);
   const worstRatio = Math.max(maxHorizontalRatio, maxVerticalRatio);
 
+  // Standard Pokemon Card width = 63.0mm, height = 88.0mm
+  const cardPixelWidth = Math.max(0.01, lines.rightOuter - lines.leftOuter);
+  const cardPixelHeight = Math.max(0.01, lines.bottomOuter - lines.topOuter);
+  const leftWidthMm = Number(((leftWidth / cardPixelWidth) * 63.0).toFixed(2));
+  const rightWidthMm = Number(((rightWidth / cardPixelWidth) * 63.0).toFixed(2));
+  const topWidthMm = Number(((topWidth / cardPixelHeight) * 88.0).toFixed(2));
+  const bottomWidthMm = Number(((bottomWidth / cardPixelHeight) * 88.0).toFixed(2));
+
   let psaMaxGradeAllowed = 10;
 
   if (company === 'BRG') {
-    // BRG Centering Standards (Stricter 55:45 front & 70:30 back for BRG 10, 0.5 step increments)
     if (side === 'front') {
-      if (worstRatio <= 55.5) {
-        psaMaxGradeAllowed = 10;
-      } else if (worstRatio <= 58.0) {
-        psaMaxGradeAllowed = 9.5;
-      } else if (worstRatio <= 60.5) {
-        psaMaxGradeAllowed = 9;
-      } else if (worstRatio <= 63.0) {
-        psaMaxGradeAllowed = 8.5;
-      } else if (worstRatio <= 66.0) {
-        psaMaxGradeAllowed = 8;
-      } else if (worstRatio <= 70.0) {
-        psaMaxGradeAllowed = 7;
-      } else {
-        psaMaxGradeAllowed = 6;
-      }
+      if (worstRatio <= 55.5) psaMaxGradeAllowed = 10;
+      else if (worstRatio <= 58.0) psaMaxGradeAllowed = 9.5;
+      else if (worstRatio <= 60.5) psaMaxGradeAllowed = 9;
+      else if (worstRatio <= 63.0) psaMaxGradeAllowed = 8.5;
+      else if (worstRatio <= 66.0) psaMaxGradeAllowed = 8;
+      else if (worstRatio <= 70.0) psaMaxGradeAllowed = 7;
+      else psaMaxGradeAllowed = 6;
     } else {
-      if (worstRatio <= 70.0) {
-        psaMaxGradeAllowed = 10;
-      } else if (worstRatio <= 75.0) {
-        psaMaxGradeAllowed = 9.5;
-      } else if (worstRatio <= 80.0) {
-        psaMaxGradeAllowed = 9;
-      } else {
-        psaMaxGradeAllowed = 8;
-      }
+      if (worstRatio <= 70.0) psaMaxGradeAllowed = 10;
+      else if (worstRatio <= 75.0) psaMaxGradeAllowed = 9.5;
+      else if (worstRatio <= 80.0) psaMaxGradeAllowed = 9;
+      else psaMaxGradeAllowed = 8;
     }
   } else {
-    // Official PSA Centering Standards
     if (side === 'front') {
-      if (worstRatio <= 58.5) {
-        psaMaxGradeAllowed = 10;
-      } else if (worstRatio <= 60.0) {
-        psaMaxGradeAllowed = 9.5;
-      } else if (worstRatio <= 65.0) {
-        psaMaxGradeAllowed = 9;
-      } else if (worstRatio <= 70.0) {
-        psaMaxGradeAllowed = 8;
-      } else if (worstRatio <= 75.0) {
-        psaMaxGradeAllowed = 7;
-      } else if (worstRatio <= 80.0) {
-        psaMaxGradeAllowed = 6;
-      } else {
-        psaMaxGradeAllowed = 5;
-      }
+      if (worstRatio <= 58.5) psaMaxGradeAllowed = 10;
+      else if (worstRatio <= 60.0) psaMaxGradeAllowed = 9.5;
+      else if (worstRatio <= 65.0) psaMaxGradeAllowed = 9;
+      else if (worstRatio <= 70.0) psaMaxGradeAllowed = 8;
+      else if (worstRatio <= 75.0) psaMaxGradeAllowed = 7;
+      else if (worstRatio <= 80.0) psaMaxGradeAllowed = 6;
+      else psaMaxGradeAllowed = 5;
     } else {
-      if (worstRatio <= 75.0) {
-        psaMaxGradeAllowed = 10;
-      } else if (worstRatio <= 90.0) {
-        psaMaxGradeAllowed = 9;
-      } else {
-        psaMaxGradeAllowed = 7;
-      }
+      if (worstRatio <= 75.0) psaMaxGradeAllowed = 10;
+      else if (worstRatio <= 90.0) psaMaxGradeAllowed = 9;
+      else psaMaxGradeAllowed = 7;
     }
   }
 
@@ -302,6 +291,10 @@ export function calculateCenteringMetrics(
     psaMaxGradeAllowed,
     ratioTextLR: `${Math.round(leftPercent)} : ${Math.round(rightPercent)}`,
     ratioTextTB: `${Math.round(topPercent)} : ${Math.round(bottomPercent)}`,
+    leftWidthMm,
+    rightWidthMm,
+    topWidthMm,
+    bottomWidthMm,
   };
 }
 
@@ -357,7 +350,12 @@ export function computeFinalPSAReport(params: {
 
   let rawGrade = Math.min(weightedAvg, minSubgrade + 0.5);
 
-  if (surface.indentOrCreaseDetected) {
+  // Strict PSA & BRG Cap Rules:
+  // 1. Crease / Fold -> Hard Cap Max Grade 5.0
+  // 2. Indent / Dent -> Hard Cap Max Grade 6.0
+  if (surface.creaseDetected) {
+    rawGrade = Math.min(rawGrade, 5.0);
+  } else if (surface.indentDetected) {
     rawGrade = Math.min(rawGrade, 6.0);
   }
 
@@ -365,7 +363,6 @@ export function computeFinalPSAReport(params: {
   let gradeInfo: PSAGradeInfo;
 
   if (company === 'BRG') {
-    // BRG uses 0.5 step grades (10, 9.5, 9, 8.5, 8, 7, 6)
     const snapped = Math.round(rawGrade * 2) / 2;
     if (snapped >= 9.75) predictedGrade = 10;
     else if (snapped >= 9.25) predictedGrade = 9.5;
@@ -373,9 +370,10 @@ export function computeFinalPSAReport(params: {
     else if (snapped >= 8.25) predictedGrade = 8.5;
     else if (snapped >= 7.5) predictedGrade = 8;
     else if (snapped >= 6.5) predictedGrade = 7;
-    else predictedGrade = 6;
+    else if (snapped >= 5.5) predictedGrade = 6;
+    else predictedGrade = 5;
 
-    gradeInfo = BRG_GRADE_TABLE[predictedGrade] || BRG_GRADE_TABLE[6];
+    gradeInfo = BRG_GRADE_TABLE[predictedGrade] || BRG_GRADE_TABLE[5];
   } else {
     predictedGrade = Math.max(5, Math.min(10, Math.round(rawGrade)));
     gradeInfo = PSA_GRADE_TABLE[predictedGrade] || PSA_GRADE_TABLE[5];
@@ -386,8 +384,10 @@ export function computeFinalPSAReport(params: {
       ? '4대 서브그레이드(센터링·코너·엣지·표면) 모두 BRG 10 허용 기준 내에 있습니다.'
       : '4대 항목(센터링·코너·엣지·표면) 모두 PSA 10 허용 오차 범위 내에 있습니다.';
 
-  if (surface.indentOrCreaseDetected) {
-    limitingFactor = `다각도 빛 반사 스캔에서 표면 미세 찍힘/눌림(Indent)이 감지되어 ${company} 규정상 최대 6등급으로 제한됩니다.`;
+  if (surface.creaseDetected) {
+    limitingFactor = `⚠️ 표면 접힘/주름(Crease)이 감지되어 ${company} 규정상 다른 항목이 완벽해도 최대 5등급으로 제한됩니다.`;
+  } else if (surface.indentDetected) {
+    limitingFactor = `⚠️ 다각도 빛반사 스캔에서 미세 찍힘/눌림(Indent)이 감지되어 ${company} 규정상 최대 6등급으로 제한됩니다.`;
   } else if (minSubgrade === centeringSubgrade && centeringSubgrade < 9.8) {
     limitingFactor = `전면 센터링 편차(${frontCentering.ratioTextLR})가 ${company} 10 기준(${
       company === 'BRG' ? '55:45 이내' : '55:45~60:40 이내'
@@ -398,7 +398,7 @@ export function computeFinalPSAReport(params: {
       1
     )}%)가 감점 요인입니다.`;
   } else if (minSubgrade === surfaceSubgrade && surfaceSubgrade < 9.5) {
-    limitingFactor = `사선(20°) 빛 반사 스캔에서 표면 미세 스크래치/프린트 라인이 감지되어 감점되었습니다.`;
+    limitingFactor = `사선(20°) 빛반사 스캔에서 표면 미세 스크래치/프린트 라인이 감지되어 감점되었습니다.`;
   }
 
   return {
@@ -407,12 +407,12 @@ export function computeFinalPSAReport(params: {
     timestamp: new Date().toLocaleString('ko-KR'),
     predictedGrade,
     gradeInfo,
-    confidenceScore: 91,
+    confidenceScore: 92,
     probabilities: {
-      psa10: 70,
-      psa9: 20,
-      psa8: 8,
-      psa7OrLower: 2,
+      psa10: surface.creaseDetected || surface.indentDetected ? 0 : 70,
+      psa9: surface.creaseDetected ? 0 : surface.indentDetected ? 5 : 20,
+      psa8: surface.creaseDetected ? 2 : surface.indentDetected ? 15 : 8,
+      psa7OrLower: surface.creaseDetected ? 98 : surface.indentDetected ? 80 : 2,
     },
     subgrades: {
       centering: centeringSubgrade,
@@ -425,6 +425,8 @@ export function computeFinalPSAReport(params: {
     corners,
     edges,
     surface,
+    creaseDetected: surface.creaseDetected,
+    indentDetected: surface.indentDetected,
     limitingFactor,
     submissionAdvice: '',
     aiExpertComment,

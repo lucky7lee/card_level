@@ -18,6 +18,7 @@ import {
   analyzeCornersAndEdges,
   analyzeSurfaceMultiAngle,
   autoDetectCenteringLines,
+  rectifyCardPerspective,
 } from './utils/visionAnalyzer';
 import { CameraScanner } from './components/CameraScanner';
 import { CenteringTool } from './components/CenteringTool';
@@ -27,14 +28,14 @@ import { RulesGuide } from './components/RulesGuide';
 type ScreenView = 'home' | 'scan' | 'centering' | 'report' | 'rules';
 
 const DEFAULT_LINES: CenteringLines = {
-  leftOuter: 0.06,
-  leftInner: 0.11,
-  rightInner: 0.89,
-  rightOuter: 0.94,
-  topOuter: 0.055,
-  topInner: 0.092,
-  bottomInner: 0.908,
-  bottomOuter: 0.945,
+  leftOuter: 0.04,
+  leftInner: 0.092,
+  rightInner: 0.908,
+  rightOuter: 0.96,
+  topOuter: 0.04,
+  topInner: 0.082,
+  bottomInner: 0.918,
+  bottomOuter: 0.96,
 };
 
 export function App() {
@@ -59,7 +60,8 @@ export function App() {
       const surfResult = await analyzeSurfaceMultiAngle(
         frames.front!,
         frames.tilt_top,
-        frames.tilt_side
+        frames.tilt_side,
+        frames.back
       );
       if (!cancelled) {
         setCorners(ceResult.corners);
@@ -86,24 +88,39 @@ export function App() {
   };
 
   const handleCaptureFrame = async (step: ScanAngleId, dataUrl: string) => {
-    setFrames((prev) => ({ ...prev, [step]: dataUrl }));
-    if (step === 'front') {
-      const detected = await autoDetectCenteringLines(dataUrl);
-      setFrontLines(detected);
-    } else if (step === 'back') {
-      const detected = await autoDetectCenteringLines(dataUrl);
-      setBackLines(detected);
+    try {
+      if (step === 'front') {
+        const { lines, rectifiedUrl } = await autoDetectCenteringLines(dataUrl);
+        setFrontLines(lines);
+        setFrames((prev) => ({ ...prev, front: rectifiedUrl }));
+      } else if (step === 'back') {
+        const { lines, rectifiedUrl } = await autoDetectCenteringLines(dataUrl);
+        setBackLines(lines);
+        setFrames((prev) => ({ ...prev, back: rectifiedUrl }));
+      } else {
+        const { rectifiedDataUrl } = await rectifyCardPerspective(dataUrl);
+        setFrames((prev) => ({ ...prev, [step]: rectifiedDataUrl }));
+      }
+    } catch {
+      // Fallback to raw frame if rectification fails
+      setFrames((prev) => ({ ...prev, [step]: dataUrl }));
     }
   };
 
   const handleAutoDetectCentering = async (side: 'front' | 'back') => {
     const url = side === 'front' ? frames.front : frames.back || frames.front;
     if (!url) return;
-    const detected = await autoDetectCenteringLines(url);
-    if (side === 'front') {
-      setFrontLines(detected);
-    } else {
-      setBackLines(detected);
+    try {
+      const { lines, rectifiedUrl } = await autoDetectCenteringLines(url);
+      if (side === 'front') {
+        setFrontLines(lines);
+        setFrames((prev) => ({ ...prev, front: rectifiedUrl }));
+      } else {
+        setBackLines(lines);
+        setFrames((prev) => ({ ...prev, back: rectifiedUrl }));
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -174,13 +191,13 @@ export function App() {
             <div className="text-center space-y-2">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/30 px-3 py-1 text-xs font-black text-red-400">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>포켓몬카드 등급 판정 시뮬레이터</span>
+                <span>AI 카드 분리 및 원근 왜곡 자동 보정</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 PokéGrade AI
               </h1>
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-                스마트폰 카메라로 포켓몬카드를 다각도에서 비추어 PSA 및 BRG 예상 등급을 정밀 예측합니다.
+                방바닥이나 책상 배경이 포함되어도 카드 영역을 자동으로 추출하고 사다리꼴 원근을 평평하게 보정하여 정밀 판정합니다.
               </p>
             </div>
 
@@ -329,7 +346,7 @@ export function App() {
 
       {/* Minimal Footer */}
       <footer className="py-3 text-center text-[11px] text-slate-600 border-t border-slate-900">
-        PokéGrade AI · PSA & BRG Multi-Angle Vision Predictor
+        PokéGrade AI · Perspective Auto-Warp & Multi-Angle Defect Analyzer
       </footer>
     </div>
   );
