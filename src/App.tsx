@@ -197,7 +197,9 @@ export function App() {
                 PokéGrade AI
               </h1>
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-                실제 카드를 대상으로 등급을 판정합니다. 실제 카드를 최대한 자세히 스캔해 주세요.
+                실제 카드를 대상으로 등급을 판정합니다.
+                <br />
+                실제 카드를 최대한 자세히 스캔해 주세요.
               </p>
             </div>
 
