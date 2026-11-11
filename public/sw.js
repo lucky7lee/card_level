@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pokegrade-psa-v2';
+const CACHE_NAME = 'pokegrade-psa-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
