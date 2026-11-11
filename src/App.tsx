@@ -191,13 +191,13 @@ export function App() {
             <div className="text-center space-y-2">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/30 px-3 py-1 text-xs font-black text-red-400">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>AI 카드 분리 및 원근 왜곡 자동 보정</span>
+                <span>AI 포켓몬카드 예상 등급 판정</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 PokéGrade AI
               </h1>
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-                방바닥이나 책상 배경이 포함되어도 카드 영역을 자동으로 추출하고 사다리꼴 원근을 평평하게 보정하여 정밀 판정합니다.
+                실제 카드를 대상으로 등급을 판정합니다. 실제 카드를 최대한 자세히 스캔해 주세요.
               </p>
             </div>
 
