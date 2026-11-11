@@ -130,7 +130,17 @@ export const PSA_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     backCenteringRule: '90:10 이내',
     description:
       '카드 표면에 접힘이나 구겨짐(Crease) 주름이 감지되면 PSA 기준상 최대 5등급으로 제한됩니다.',
-    badgeColor: 'from-slate-400 to-slate-600',
+    badgeColor: 'from-slate-500 to-slate-700',
+  },
+  0: {
+    grade: 0,
+    code: 'PSA 5등급 미만',
+    titleKo: '5등급 미만 (1~4등급 · 심한 마모/손상)',
+    frontCenteringRule: '85:15 초과 또는 심한 손상',
+    backCenteringRule: '90:10 초과 또는 심한 손상',
+    description:
+      '심한 모서리 뭉개짐, 찢김, 물 번짐, 깊은 구겨짐 또는 극심한 센터링 이탈로 인해 수집품 감정 가치상 5등급 미만(1~4등급)으로 종합 판정됩니다.',
+    badgeColor: 'from-slate-600 via-zinc-700 to-slate-900',
   },
 };
 
@@ -213,7 +223,17 @@ export const BRG_GRADE_TABLE: Record<number, PSAGradeInfo> = {
     backCenteringRule: '90:10 이내',
     description:
       '표면 접힘 또는 구겨짐(Crease) 주름이 감지된 카드는 BRG 규정상 최대 5등급으로 제한됩니다.',
-    badgeColor: 'from-slate-400 to-slate-600',
+    badgeColor: 'from-slate-500 to-slate-700',
+  },
+  0: {
+    grade: 0,
+    code: 'BRG 5등급 미만',
+    titleKo: '5등급 미만 (1~4등급 · 심한 마모/손상)',
+    frontCenteringRule: '80:20 초과 또는 심한 손상',
+    backCenteringRule: '90:10 초과 또는 심한 손상',
+    description:
+      '심한 모서리 뭉개짐, 찢김, 물 번짐, 깊은 구겨짐 등으로 인해 수집품 감정 가치상 5등급 미만(1~4등급)으로 종합 안내됩니다.',
+    badgeColor: 'from-slate-600 via-zinc-700 to-slate-900',
   },
 };
 
@@ -362,7 +382,13 @@ export function computeFinalPSAReport(params: {
   let predictedGrade: number;
   let gradeInfo: PSAGradeInfo;
 
-  if (company === 'BRG') {
+  // 1, 2, 3, 4 grades are combined into '5등급 미만'
+  const isUnderFive = company === 'BRG' ? rawGrade < 4.75 : Math.round(rawGrade) < 5;
+
+  if (isUnderFive) {
+    predictedGrade = 0; // 0 represents '5등급 미만'
+    gradeInfo = company === 'BRG' ? BRG_GRADE_TABLE[0] : PSA_GRADE_TABLE[0];
+  } else if (company === 'BRG') {
     const snapped = Math.round(rawGrade * 2) / 2;
     if (snapped >= 9.75) predictedGrade = 10;
     else if (snapped >= 9.25) predictedGrade = 9.5;
@@ -384,7 +410,9 @@ export function computeFinalPSAReport(params: {
       ? '4대 서브그레이드(센터링·코너·엣지·표면) 모두 BRG 10 허용 기준 내에 있습니다.'
       : '4대 항목(센터링·코너·엣지·표면) 모두 PSA 10 허용 오차 범위 내에 있습니다.';
 
-  if (surface.creaseDetected) {
+  if (isUnderFive) {
+    limitingFactor = `⚠️ 심한 마모, 깊은 주름(구겨짐) 또는 큰 테두리 편차로 인해 ${company} 5등급 미만(1~4등급)으로 판정되었습니다. 감정 제출 시 수수료 대비 가치 유지가 어려우므로 슬랩 등록을 비추천합니다.`;
+  } else if (surface.creaseDetected) {
     limitingFactor = `⚠️ 표면 접힘/주름(Crease)이 감지되어 ${company} 규정상 다른 항목이 완벽해도 최대 5등급으로 제한됩니다.`;
   } else if (surface.indentDetected) {
     limitingFactor = `⚠️ 다각도 빛반사 스캔에서 미세 찍힘/눌림(Indent)이 감지되어 ${company} 규정상 최대 6등급으로 제한됩니다.`;

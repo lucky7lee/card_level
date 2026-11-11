@@ -73,8 +73,14 @@ export const GradeReport: React.FC<GradeReportProps> = ({
             <span className="text-[10px] font-bold uppercase opacity-90">
               {report.company}
             </span>
-            <span className="text-2xl font-black leading-none">
-              {report.predictedGrade}
+            <span
+              className={
+                report.predictedGrade === 0
+                  ? 'text-sm font-black leading-tight text-center'
+                  : 'text-2xl font-black leading-none'
+              }
+            >
+              {report.predictedGrade === 0 ? '5 미만' : report.predictedGrade}
             </span>
           </div>
         </div>
